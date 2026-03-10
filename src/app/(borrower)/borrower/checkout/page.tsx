@@ -64,11 +64,6 @@ export default function CheckoutPage() {
             return
         }
 
-        // Update item statuses
-        for (const item of cartItems) {
-            await supabase.from('items').update({ status: 'borrowed' }).eq('id', item.id)
-        }
-
         // Audit log
         await supabase.from('audit_logs').insert({
             user_id: user.id,
