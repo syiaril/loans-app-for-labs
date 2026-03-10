@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SiPinjam Lab - Sistem Peminjaman Barang Laboratorium",
-  description: "Aplikasi manajemen peminjaman barang laboratorium untuk sekolah dan institusi pendidikan",
+  title: "SiPinjam Lab - Sistem Peminjaman Barang Lab Komputer RPL",
+  description: "Aplikasi manajemen peminjaman barang Lab Komputer Jurusan RPL (Rekayasa Perangkat Lunak)",
 };
 
 export default function RootLayout({
