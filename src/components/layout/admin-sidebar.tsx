@@ -56,15 +56,31 @@ export default function AdminSidebar() {
     const [mobileOpen, setMobileOpen] = useState(false)
 
     async function handleLogout() {
-        const supabase = createClient()
-        await supabase.from('audit_logs').insert({
-            user_id: profile?.id,
-            action: 'logout',
-            description: 'Admin logout',
-        })
-        await supabase.auth.signOut()
-        toast.success('Berhasil logout')
-        router.push('/login')
+        const logoutToast = toast.loading('Sedang keluar...')
+        try {
+            const supabase = createClient()
+
+            // Try to log the logout action, but don't let it block the actual sign out
+            try {
+                if (profile?.id) {
+                    await supabase.from('audit_logs').insert({
+                        user_id: profile.id,
+                        action: 'logout',
+                        description: 'Admin logout',
+                    })
+                }
+            } catch (e) {
+                console.error('Failed to log logout:', e)
+            }
+
+            const { error } = await supabase.auth.signOut()
+            if (error) throw error
+
+            toast.success('Berhasil logout', { id: logoutToast })
+            router.replace('/login')
+        } catch (error: any) {
+            toast.error('Gagal logout: ' + error.message, { id: logoutToast })
+        }
     }
 
     const sidebarContent = (

@@ -26,15 +26,30 @@ export default function BorrowerNavbar() {
     const [mobileOpen, setMobileOpen] = useState(false)
 
     async function handleLogout() {
-        const supabase = createClient()
-        await supabase.from('audit_logs').insert({
-            user_id: profile?.id,
-            action: 'logout',
-            description: 'Logout dari aplikasi',
-        })
-        await supabase.auth.signOut()
-        toast.success('Berhasil logout')
-        router.push('/login')
+        const logoutToast = toast.loading('Sedang keluar...')
+        try {
+            const supabase = createClient()
+
+            try {
+                if (profile?.id) {
+                    await supabase.from('audit_logs').insert({
+                        user_id: profile.id,
+                        action: 'logout',
+                        description: 'Logout dari aplikasi',
+                    })
+                }
+            } catch (e) {
+                console.error('Failed to log logout:', e)
+            }
+
+            const { error } = await supabase.auth.signOut()
+            if (error) throw error
+
+            toast.success('Berhasil logout', { id: logoutToast })
+            router.replace('/login')
+        } catch (error: any) {
+            toast.error('Gagal logout: ' + error.message, { id: logoutToast })
+        }
     }
 
     return (
