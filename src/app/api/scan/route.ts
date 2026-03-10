@@ -86,5 +86,34 @@ export async function GET(request: Request) {
         return NextResponse.json({ items })
     }
 
+    // Recommendations: borrowed items first, then available items
+    const recommendations = searchParams.get('recommendations')
+    if (recommendations === 'true') {
+        // Get borrowed items (most relevant for quick return)
+        const { data: borrowedItems } = await supabase
+            .from('items')
+            .select('*, category:categories(name)')
+            .eq('status', 'borrowed')
+            .eq('is_active', true)
+            .order('updated_at', { ascending: false })
+            .limit(5)
+
+        // Get some available items
+        const { data: availableItems } = await supabase
+            .from('items')
+            .select('*, category:categories(name)')
+            .eq('status', 'available')
+            .eq('is_active', true)
+            .order('updated_at', { ascending: false })
+            .limit(8)
+
+        const allItems = [
+            ...(borrowedItems || []),
+            ...(availableItems || []),
+        ].slice(0, 12)
+
+        return NextResponse.json({ items: allItems })
+    }
+
     return NextResponse.json({ error: 'Parameter barcode atau query diperlukan' }, { status: 400 })
 }
