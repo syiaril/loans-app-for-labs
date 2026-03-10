@@ -27,10 +27,10 @@ export function useIdleLogout(timeoutMs: number = 60000) {
             // ignore
         }
 
-        toast.info('Sesi habis karena tidak ada aktivitas. Silakan login kembali.', {
+        toast.info('Sesi habis karena tidak ada aktivitas.', {
             duration: 5000,
         })
-        router.replace('/login')
+        router.replace('/')
     }, [router])
 
     const resetTimer = useCallback(() => {
