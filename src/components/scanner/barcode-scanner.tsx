@@ -26,13 +26,13 @@ interface BarcodeScannerProps {
 export default function BarcodeScanner({ onScan, placeholder = 'Scan atau ketik barcode...', autoFocus = true }: BarcodeScannerProps) {
     const [manualInput, setManualInput] = useState('')
     const [cameraActive, setCameraActive] = useState(false)
+    const [cameraLoading, setCameraLoading] = useState(false)
     const [suggestions, setSuggestions] = useState<SuggestItem[]>([])
     const [suggestLoading, setSuggestLoading] = useState(false)
     const [showSuggestions, setShowSuggestions] = useState(false)
     const [selectedIndex, setSelectedIndex] = useState(-1)
     const inputRef = useRef<HTMLInputElement>(null)
-    const videoRef = useRef<HTMLDivElement>(null)
-    const scannerRef = useRef<unknown>(null)
+    const scannerRef = useRef<any>(null)
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
     const wrapperRef = useRef<HTMLDivElement>(null)
 
@@ -42,9 +42,15 @@ export default function BarcodeScanner({ onScan, placeholder = 'Scan atau ketik 
         }
     }, [autoFocus])
 
+    // Cleanup on unmount
     useEffect(() => {
         return () => {
-            stopCamera()
+            if (scannerRef.current) {
+                try {
+                    scannerRef.current.stop().catch(() => { })
+                } catch { }
+                scannerRef.current = null
+            }
         }
     }, [])
 
@@ -89,7 +95,6 @@ export default function BarcodeScanner({ onScan, placeholder = 'Scan atau ketik 
     function handleInputChange(value: string) {
         setManualInput(value)
 
-        // Debounce API calls
         if (debounceRef.current) clearTimeout(debounceRef.current)
         debounceRef.current = setTimeout(() => {
             fetchSuggestions(value.trim())
@@ -104,50 +109,85 @@ export default function BarcodeScanner({ onScan, placeholder = 'Scan atau ketik 
     }
 
     async function startCamera() {
+        setCameraLoading(true)
         try {
-            const { Html5Qrcode } = await import('html5-qrcode')
-
-            if (!videoRef.current) return
-
-            const scannerId = 'barcode-scanner-video'
-            let scannerDiv = document.getElementById(scannerId)
-            if (!scannerDiv) {
-                scannerDiv = document.createElement('div')
-                scannerDiv.id = scannerId
-                videoRef.current.appendChild(scannerDiv)
+            // Clean up any existing scanner first
+            if (scannerRef.current) {
+                try {
+                    await scannerRef.current.stop()
+                } catch { }
+                scannerRef.current = null
             }
 
-            const scanner = new Html5Qrcode(scannerId)
+            // Clean up any existing scanner div
+            const existingDiv = document.getElementById('barcode-reader')
+            if (existingDiv) {
+                existingDiv.innerHTML = ''
+            }
+
+            const { Html5Qrcode } = await import('html5-qrcode')
+            const scanner = new Html5Qrcode('barcode-reader')
             scannerRef.current = scanner
 
+            const cameras = await Html5Qrcode.getCameras()
+            if (!cameras || cameras.length === 0) {
+                toast.error('Tidak ada kamera yang tersedia')
+                setCameraLoading(false)
+                return
+            }
+
+            // Prefer back camera
+            const backCamera = cameras.find(c =>
+                c.label.toLowerCase().includes('back') ||
+                c.label.toLowerCase().includes('belakang') ||
+                c.label.toLowerCase().includes('environment')
+            )
+            const cameraId = backCamera ? backCamera.id : cameras[cameras.length - 1].id
+
             await scanner.start(
-                { facingMode: 'environment' },
-                { fps: 10, qrbox: { width: 250, height: 100 } },
+                cameraId,
+                {
+                    fps: 10,
+                    qrbox: { width: 250, height: 150 },
+                    aspectRatio: 1.777,
+                },
                 (decodedText) => {
                     onScan(decodedText)
                     toast.success(`Barcode terdeteksi: ${decodedText}`)
+                    // Auto-stop after successful scan
+                    stopCamera()
                 },
-                () => { } // ignore errors during scanning
+                () => { } // ignore scan errors
             )
 
             setCameraActive(true)
-        } catch (err) {
-            toast.error('Gagal mengakses kamera: ' + (err instanceof Error ? err.message : 'Unknown error'))
+        } catch (err: any) {
+            const errorMsg = err?.message || 'Tidak bisa mengakses kamera'
+            if (errorMsg.includes('Permission denied') || errorMsg.includes('NotAllowedError')) {
+                toast.error('Izin kamera ditolak. Silakan izinkan akses kamera di browser.')
+            } else if (errorMsg.includes('NotFoundError')) {
+                toast.error('Kamera tidak ditemukan pada perangkat ini.')
+            } else {
+                toast.error('Gagal mengakses kamera: ' + errorMsg)
+            }
+        } finally {
+            setCameraLoading(false)
         }
     }
 
     async function stopCamera() {
         try {
             if (scannerRef.current) {
-                const scanner = scannerRef.current as { stop: () => Promise<void>; clear: () => void }
-                await scanner.stop()
-                scanner.clear()
+                const isScanning = scannerRef.current.isScanning
+                if (isScanning) {
+                    await scannerRef.current.stop()
+                }
                 scannerRef.current = null
             }
-            setCameraActive(false)
         } catch {
-            // Ignore cleanup errors
+            scannerRef.current = null
         }
+        setCameraActive(false)
     }
 
     function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -256,8 +296,15 @@ export default function BarcodeScanner({ onScan, placeholder = 'Scan atau ketik 
                     size="icon"
                     className="h-12 w-12"
                     onClick={cameraActive ? stopCamera : startCamera}
+                    disabled={cameraLoading}
                 >
-                    {cameraActive ? <CameraOff className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
+                    {cameraLoading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : cameraActive ? (
+                        <CameraOff className="w-5 h-5" />
+                    ) : (
+                        <Camera className="w-5 h-5" />
+                    )}
                 </Button>
                 {manualInput && (
                     <Button
@@ -274,13 +321,15 @@ export default function BarcodeScanner({ onScan, placeholder = 'Scan atau ketik 
                 )}
             </div>
 
-            {cameraActive && (
-                <div ref={videoRef} className="relative rounded-xl overflow-hidden border border-border bg-black aspect-video max-h-64">
-                </div>
-            )}
+            {/* Camera Scanner Area */}
+            <div
+                id="barcode-reader"
+                className={`rounded-xl overflow-hidden border border-border bg-black ${cameraActive ? 'block' : 'hidden'}`}
+                style={{ maxHeight: '300px' }}
+            />
 
             <p className="text-xs text-muted-foreground text-center">
-                Gunakan scanner hardware (auto-submit saat Enter) atau aktifkan kamera untuk scan
+                Gunakan scanner hardware (auto-submit saat Enter) atau aktifkan kamera 📷
             </p>
         </div>
     )
