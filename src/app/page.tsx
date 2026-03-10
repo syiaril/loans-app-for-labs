@@ -136,9 +136,9 @@ export default function PublicScanPage() {
     <div className="min-h-screen bg-background">
       {/* Background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-500/3 rounded-full blur-3xl" />
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-purple-500/8 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-violet-500/8 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl" />
       </div>
 
       <div className="relative z-10 max-w-2xl mx-auto px-4 py-8">
@@ -197,8 +197,8 @@ export default function PublicScanPage() {
                     }}
                   >
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${item.status === 'borrowed'
-                        ? 'bg-yellow-500/10'
-                        : 'bg-emerald-500/10'
+                      ? 'bg-yellow-500/10'
+                      : 'bg-emerald-500/10'
                       }`}>
                       <Package className={`w-4 h-4 ${item.status === 'borrowed' ? 'text-yellow-400' : 'text-emerald-400'
                         }`} />

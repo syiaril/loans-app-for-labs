@@ -11,9 +11,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/use-auth'
 import { ITEM_STATUS_LABELS, ITEM_STATUS_COLORS, CONDITION_LABELS } from '@/lib/utils'
-import { Plus, Search, Pencil, Trash2, Loader2, Package } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Loader2, Package, Printer } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import Link from 'next/link'
+import DataPagination from '@/components/data-pagination'
+import { TableSkeleton } from '@/components/skeletons'
 import type { Item, Category } from '@/lib/types/database'
 
 export default function ItemsPage() {
@@ -66,7 +68,10 @@ export default function ItemsPage() {
                     <h1 className="text-2xl font-bold">Manajemen Barang</h1>
                     <p className="text-muted-foreground">Kelola inventaris laboratorium</p>
                 </div>
-                <Link href="/admin/items/create"><Button><Plus className="w-4 h-4 mr-2" />Tambah Barang</Button></Link>
+                <div className="flex gap-2">
+                    <Link href="/admin/items/barcodes"><Button variant="outline"><Printer className="w-4 h-4 mr-2" />Cetak Barcode</Button></Link>
+                    <Link href="/admin/items/create"><Button><Plus className="w-4 h-4 mr-2" />Tambah Barang</Button></Link>
+                </div>
             </div>
 
             <Card className="backdrop-blur-xl bg-card/80 border-border/50">
@@ -94,7 +99,22 @@ export default function ItemsPage() {
                 </CardHeader>
                 <CardContent>
                     {loading ? (
-                        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Barang</TableHead>
+                                        <TableHead>Kode</TableHead>
+                                        <TableHead>Barcode</TableHead>
+                                        <TableHead>Kategori</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead>Kondisi</TableHead>
+                                        <TableHead className="text-right">Aksi</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableSkeleton columns={7} rows={8} />
+                            </Table>
+                        </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <Table>
@@ -149,11 +169,7 @@ export default function ItemsPage() {
                             </Table>
                         </div>
                     )}
-                    <div className="flex items-center justify-between mt-4">
-                        <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>Sebelumnya</Button>
-                        <span className="text-sm text-muted-foreground">Halaman {page + 1}</span>
-                        <Button variant="outline" size="sm" disabled={items.length < perPage} onClick={() => setPage(p => p + 1)}>Selanjutnya</Button>
-                    </div>
+                    <DataPagination page={page} perPage={perPage} currentCount={items.length} onPageChange={setPage} />
                 </CardContent>
             </Card>
         </div>

@@ -3,6 +3,7 @@
 import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
+import { useSidebar } from '@/hooks/use-sidebar'
 import { useTheme } from '@/components/theme-provider'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -10,7 +11,7 @@ import { toast } from 'sonner'
 import {
     FlaskConical, LayoutDashboard, Users, Package, FolderOpen,
     ClipboardList, AlertTriangle, BarChart3, LogOut, Sun, Moon,
-    ChevronLeft, Menu, FileText
+    PanelLeft, Menu, FileText
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -52,7 +53,7 @@ export default function AdminSidebar() {
     const pathname = usePathname()
     const { profile } = useAuth()
     const { theme, setTheme } = useTheme()
-    const [collapsed, setCollapsed] = useState(false)
+    const { collapsed, toggle } = useSidebar()
     const [mobileOpen, setMobileOpen] = useState(false)
 
     async function handleLogout() {
@@ -60,7 +61,6 @@ export default function AdminSidebar() {
         try {
             const supabase = createClient()
 
-            // Try to log the logout action, but don't let it block the actual sign out
             try {
                 if (profile?.id) {
                     await supabase.from('audit_logs').insert({
@@ -85,19 +85,42 @@ export default function AdminSidebar() {
 
     const sidebarContent = (
         <div className="flex flex-col h-full">
-            {/* Logo */}
+            {/* Logo + Toggle */}
             <div className="p-4 border-b border-border/50">
-                <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                        <FlaskConical className="w-5 h-5 text-primary" />
+                {collapsed ? (
+                    /* Collapsed: just show toggle button centered */
+                    <div className="flex justify-center">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 hidden lg:flex"
+                            onClick={toggle}
+                            title="Buka Sidebar"
+                        >
+                            <PanelLeft className="w-5 h-5 rotate-180" />
+                        </Button>
                     </div>
-                    {!collapsed && (
-                        <div>
+                ) : (
+                    /* Expanded: logo + title + toggle */
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                            <FlaskConical className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm">SiPinjam Lab</p>
                             <p className="text-xs text-muted-foreground">Admin Panel</p>
                         </div>
-                    )}
-                </div>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="shrink-0 hidden lg:flex h-8 w-8"
+                            onClick={toggle}
+                            title="Tutup Sidebar"
+                        >
+                            <PanelLeft className="w-4 h-4" />
+                        </Button>
+                    </div>
+                )}
             </div>
 
             {/* Nav */}
@@ -126,6 +149,7 @@ export default function AdminSidebar() {
                                                 router.push(item.href)
                                                 setMobileOpen(false)
                                             }}
+                                            title={collapsed ? item.label : undefined}
                                         >
                                             <item.icon className="w-4 h-4 shrink-0" />
                                             {!collapsed && <span>{item.label}</span>}
@@ -146,19 +170,10 @@ export default function AdminSidebar() {
                         size="icon"
                         className="shrink-0"
                         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                        title={theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
                     >
                         {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                     </Button>
-                    {!collapsed && (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="shrink-0 hidden lg:flex"
-                            onClick={() => setCollapsed(!collapsed)}
-                        >
-                            <ChevronLeft className="w-4 h-4" />
-                        </Button>
-                    )}
                 </div>
                 {!collapsed && (
                     <div className="flex items-center gap-2 px-2">
@@ -169,13 +184,13 @@ export default function AdminSidebar() {
                             <p className="text-sm font-medium truncate">{profile?.name}</p>
                             <p className="text-xs text-muted-foreground">Admin</p>
                         </div>
-                        <Button variant="ghost" size="icon" onClick={handleLogout}>
+                        <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
                             <LogOut className="w-4 h-4" />
                         </Button>
                     </div>
                 )}
                 {collapsed && (
-                    <Button variant="ghost" size="icon" className="w-full" onClick={handleLogout}>
+                    <Button variant="ghost" size="icon" className="w-full" onClick={handleLogout} title="Logout">
                         <LogOut className="w-4 h-4" />
                     </Button>
                 )}

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Camera, CameraOff, Keyboard, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 interface BarcodeScannerProps {
     onScan: (barcode: string) => void
@@ -176,27 +177,46 @@ export default function BarcodeScanner({
                 </Button>
             </div>
 
-            {/* Camera Preview */}
-            {cameraActive && (
-                <div className="relative rounded-xl overflow-hidden border border-border bg-black" style={{ maxHeight: '300px' }}>
-                    <video
-                        ref={videoRef}
-                        className="w-full h-full object-cover"
-                        playsInline
-                        muted
-                        autoPlay
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="w-64 h-24 border-2 border-primary/50 rounded-lg" />
-                    </div>
+            {/* Camera Preview — Persistent element to avoid losing stream */}
+            <div
+                className={cn(
+                    "relative rounded-xl overflow-hidden border border-border bg-black transition-all duration-300",
+                    cameraActive ? "h-[300px] opacity-100 mb-2" : "h-0 opacity-0 overflow-hidden border-none"
+                )}
+            >
+                <video
+                    ref={videoRef}
+                    className="w-full h-full object-cover"
+                    playsInline
+                    muted
+                    autoPlay
+                />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-64 h-24 border-2 border-primary/50 rounded-lg" />
                 </div>
+                <div className="absolute top-2 right-2">
+                    <Button
+                        size="sm"
+                        variant="secondary"
+                        className="h-8 bg-black/50 backdrop-blur-md border-white/10 text-white"
+                        onClick={() => { stopCamera(); setTimeout(startCamera, 100); }}
+                    >
+                        Muat Ulang
+                    </Button>
+                </div>
+            </div>
+
+            {!cameraActive && (
+                <p className="text-xs text-muted-foreground text-center">
+                    Scan barcode otomatis saat Enter • Ketik nama barang untuk cari realtime 📷
+                </p>
             )}
 
-            {!cameraActive && <video ref={videoRef} className="hidden" playsInline muted />}
-
-            <p className="text-xs text-muted-foreground text-center">
-                Scan barcode otomatis saat Enter • Ketik nama barang untuk cari realtime 📷
-            </p>
+            {cameraActive && (
+                <p className="text-xs text-primary font-medium text-center animate-pulse">
+                    Kamera aktif. Silakan arahkan barcode ke kotak di atas.
+                </p>
+            )}
         </div>
     )
 }

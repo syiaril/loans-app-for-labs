@@ -11,6 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { STATUS_LABELS, STATUS_COLORS, formatDate } from '@/lib/utils'
 import { Search, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+import DataPagination from '@/components/data-pagination'
+import { TableSkeleton } from '@/components/skeletons'
 import type { Loan, Profile } from '@/lib/types/database'
 
 export default function LoansPage() {
@@ -59,7 +61,22 @@ export default function LoansPage() {
                 </CardHeader>
                 <CardContent>
                     {loading ? (
-                        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Kode Pinjam</TableHead>
+                                        <TableHead>Peminjam</TableHead>
+                                        <TableHead>Jumlah Item</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead>Tgl Pinjam</TableHead>
+                                        <TableHead>Jatuh Tempo</TableHead>
+                                        <TableHead>Tgl Kembali</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableSkeleton columns={7} rows={8} />
+                            </Table>
+                        </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <Table>
@@ -100,11 +117,7 @@ export default function LoansPage() {
                             </Table>
                         </div>
                     )}
-                    <div className="flex items-center justify-between mt-4">
-                        <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>Sebelumnya</Button>
-                        <span className="text-sm text-muted-foreground">Halaman {page + 1}</span>
-                        <Button variant="outline" size="sm" disabled={loans.length < perPage} onClick={() => setPage(p => p + 1)}>Selanjutnya</Button>
-                    </div>
+                    <DataPagination page={page} perPage={perPage} currentCount={loans.length} onPageChange={setPage} />
                 </CardContent>
             </Card>
         </div>

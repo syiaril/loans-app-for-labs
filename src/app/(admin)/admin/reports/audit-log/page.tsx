@@ -10,6 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button'
 import { ACTION_LABELS, formatDateTime } from '@/lib/utils'
 import { ClipboardList, Loader2, Search } from 'lucide-react'
+import DataPagination from '@/components/data-pagination'
+import { TableSkeleton } from '@/components/skeletons'
 import type { AuditLog, Profile } from '@/lib/types/database'
 
 export default function AuditLogPage() {
@@ -61,7 +63,19 @@ export default function AuditLogPage() {
                 </CardHeader>
                 <CardContent>
                     {loading ? (
-                        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Waktu</TableHead>
+                                        <TableHead>User</TableHead>
+                                        <TableHead>Aksi</TableHead>
+                                        <TableHead>Deskripsi</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableSkeleton columns={4} rows={10} />
+                            </Table>
+                        </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <Table>
@@ -91,11 +105,7 @@ export default function AuditLogPage() {
                             </Table>
                         </div>
                     )}
-                    <div className="flex items-center justify-between mt-4">
-                        <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>Sebelumnya</Button>
-                        <span className="text-sm text-muted-foreground">Halaman {page + 1}</span>
-                        <Button variant="outline" size="sm" disabled={logs.length < perPage} onClick={() => setPage(p => p + 1)}>Selanjutnya</Button>
-                    </div>
+                    <DataPagination page={page} perPage={perPage} currentCount={logs.length} onPageChange={setPage} />
                 </CardContent>
             </Card>
         </div>

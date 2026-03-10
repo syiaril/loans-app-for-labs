@@ -13,6 +13,8 @@ import { useAuth } from '@/hooks/use-auth'
 import { Plus, Search, Check, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import Link from 'next/link'
+import DataPagination from '@/components/data-pagination'
+import { TableSkeleton } from '@/components/skeletons'
 import type { Profile } from '@/lib/types/database'
 
 export default function UsersPage() {
@@ -118,7 +120,22 @@ export default function UsersPage() {
                 </CardHeader>
                 <CardContent>
                     {loading ? (
-                        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Nama</TableHead>
+                                        <TableHead>Email</TableHead>
+                                        <TableHead>Role</TableHead>
+                                        <TableHead>Departemen</TableHead>
+                                        <TableHead>Barcode</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead className="text-right">Aksi</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableSkeleton columns={7} rows={8} />
+                            </Table>
+                        </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <Table>
@@ -188,11 +205,7 @@ export default function UsersPage() {
                             </Table>
                         </div>
                     )}
-                    <div className="flex items-center justify-between mt-4">
-                        <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>Sebelumnya</Button>
-                        <span className="text-sm text-muted-foreground">Halaman {page + 1}</span>
-                        <Button variant="outline" size="sm" disabled={users.length < perPage} onClick={() => setPage(p => p + 1)}>Selanjutnya</Button>
-                    </div>
+                    <DataPagination page={page} perPage={perPage} currentCount={users.length} onPageChange={setPage} />
                 </CardContent>
             </Card>
         </div>
