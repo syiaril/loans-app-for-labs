@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import { ITEM_STATUS_LABELS, ITEM_STATUS_COLORS } from '@/lib/utils'
 import {
   FlaskConical, ShoppingCart, Trash2, LogIn, Search, X,
-  Package, ArrowRight, Undo2, Loader2, KeyRound, Maximize, Minimize
+  Package, ArrowRight, Undo2, Loader2, KeyRound
 } from 'lucide-react'
 import type { Item } from '@/lib/types/database'
 
@@ -41,15 +41,6 @@ export default function PublicScanPage() {
   const [returnPin, setReturnPin] = useState('')
   const [returnBarcode, setReturnBarcode] = useState('')
   const [returnBorrowerName, setReturnBorrowerName] = useState('')
-  const [isFullscreen, setIsFullscreen] = useState(false)
-
-  function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => { })
-    } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => { })
-    }
-  }
 
   async function handleScan(barcode: string) {
     setLoading(true)
@@ -149,19 +140,6 @@ export default function PublicScanPage() {
       </div>
 
       <div className="relative z-10 max-w-2xl mx-auto px-4 py-8">
-        {/* Fullscreen Toggle */}
-        <div className="absolute top-4 right-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleFullscreen}
-            className="text-muted-foreground hover:text-foreground"
-            title={isFullscreen ? 'Keluar Fullscreen' : 'Fullscreen'}
-          >
-            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-          </Button>
-        </div>
-
         {/* Header */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-primary/10 border border-primary/20 mb-4 backdrop-blur-sm">
