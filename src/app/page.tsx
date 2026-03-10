@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import { ITEM_STATUS_LABELS, ITEM_STATUS_COLORS } from '@/lib/utils'
 import {
   FlaskConical, ShoppingCart, Trash2, LogIn, Search, X,
-  Package, ArrowRight, Undo2, Loader2
+  Package, ArrowRight, Undo2, Loader2, KeyRound
 } from 'lucide-react'
 import type { Item } from '@/lib/types/database'
 
@@ -37,6 +37,10 @@ export default function PublicScanPage() {
   const [searchLoading, setSearchLoading] = useState(false)
   const [showCart, setShowCart] = useState(false)
   const [returning, setReturning] = useState(false)
+  const [showPinDialog, setShowPinDialog] = useState(false)
+  const [returnPin, setReturnPin] = useState('')
+  const [returnBarcode, setReturnBarcode] = useState('')
+  const [returnBorrowerName, setReturnBorrowerName] = useState('')
 
   async function handleScan(barcode: string) {
     setLoading(true)
@@ -72,18 +76,30 @@ export default function PublicScanPage() {
     }
   }
 
-  async function handleQuickReturn(barcode: string) {
+  async function handleQuickReturn(barcode: string, pin?: string) {
     setReturning(true)
     try {
       const res = await fetch('/api/quick-return', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ barcode }),
+        body: JSON.stringify({ barcode, pin }),
       })
       const data = await res.json()
       if (res.ok) {
         toast.success(data.message)
         setScanResult(null)
+        setShowPinDialog(false)
+        setReturnPin('')
+        setReturnBarcode('')
+        setReturnBorrowerName('')
+      } else if (data.requires_pin) {
+        // Show PIN dialog
+        setReturnBarcode(barcode)
+        if (data.borrower_name) setReturnBorrowerName(data.borrower_name)
+        setShowPinDialog(true)
+        if (pin) {
+          toast.error(data.error)
+        }
       } else {
         toast.error(data.error)
       }
@@ -92,6 +108,14 @@ export default function PublicScanPage() {
     } finally {
       setReturning(false)
     }
+  }
+
+  function handlePinSubmit() {
+    if (!returnPin.trim()) {
+      toast.error('Masukkan PIN terlebih dahulu')
+      return
+    }
+    handleQuickReturn(returnBarcode, returnPin)
   }
 
   function handleAddToCart(item: Item & { category?: { name: string } }) {
@@ -199,15 +223,19 @@ export default function PublicScanPage() {
                     <p className="text-xs text-muted-foreground mt-1">
                       Kode: {scanResult.borrower.loan_code}
                     </p>
+                    {scanResult.borrower.due_date && (
+                      <p className="text-xs text-muted-foreground">
+                        Jatuh tempo: {new Date(scanResult.borrower.due_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                    )}
                   </div>
                   <Button
-                    variant="outline"
-                    className="w-full"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
                     onClick={() => handleQuickReturn(scanResult.item.barcode)}
                     disabled={returning}
                   >
                     <Undo2 className="w-4 h-4 mr-2" />
-                    {returning ? 'Memproses...' : 'Quick Return (Kembalikan)'}
+                    {returning ? 'Memproses...' : 'Kembalikan Barang Sekarang'}
                   </Button>
                 </div>
               )}
@@ -274,6 +302,63 @@ export default function PublicScanPage() {
             </Card>
           )}
         </div>
+
+        {/* PIN Verification Dialog */}
+        {showPinDialog && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <Card className="w-full max-w-sm bg-card border-border/50 animate-in zoom-in-95 duration-200">
+              <CardHeader className="text-center">
+                <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-2">
+                  <KeyRound className="w-7 h-7 text-emerald-400" />
+                </div>
+                <CardTitle className="text-lg">Verifikasi PIN</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {returnBorrowerName
+                    ? `Masukkan PIN milik ${returnBorrowerName} untuk mengembalikan barang`
+                    : 'Masukkan PIN peminjam untuk verifikasi'
+                  }
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Input
+                  type="password"
+                  maxLength={6}
+                  placeholder="Masukkan PIN (6 digit)"
+                  value={returnPin}
+                  onChange={(e) => setReturnPin(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handlePinSubmit()}
+                  autoFocus
+                  className="text-center text-lg tracking-widest"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => {
+                      setShowPinDialog(false)
+                      setReturnPin('')
+                      setReturnBarcode('')
+                      setReturnBorrowerName('')
+                    }}
+                  >
+                    Batal
+                  </Button>
+                  <Button
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                    onClick={handlePinSubmit}
+                    disabled={returning || !returnPin.trim()}
+                  >
+                    {returning ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Memproses...</>
+                    ) : (
+                      'Kembalikan'
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Cart */}
         {cartItems.length > 0 && (
