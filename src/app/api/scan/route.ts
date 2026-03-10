@@ -33,24 +33,38 @@ export async function GET(request: Request) {
         // If borrowed, get borrower info
         let borrower = null
         if (item.status === 'borrowed') {
+            // Step 1: Find the unreturned loan_item
             const { data: loanItem } = await supabase
                 .from('loan_items')
-                .select(`
-                    loan:loans(
-                        loan_code,
-                        borrowed_at,
-                        due_date,
-                        user:profiles(name, department)
-                    )
-                `)
+                .select('id, loan_id')
                 .eq('item_id', item.id)
                 .is('returned_at', null)
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .single()
 
-            if (loanItem?.loan) {
-                borrower = loanItem.loan
+            // Step 2: Get loan + borrower profile
+            if (loanItem) {
+                const { data: loan } = await supabase
+                    .from('loans')
+                    .select('loan_code, borrowed_at, due_date, user_id')
+                    .eq('id', loanItem.loan_id)
+                    .single()
+
+                if (loan) {
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('name, department')
+                        .eq('id', loan.user_id)
+                        .single()
+
+                    borrower = {
+                        loan_code: loan.loan_code,
+                        borrowed_at: loan.borrowed_at,
+                        due_date: loan.due_date,
+                        user: profile || { name: 'Unknown', department: '' },
+                    }
+                }
             }
         }
 
