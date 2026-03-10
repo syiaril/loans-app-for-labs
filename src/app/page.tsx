@@ -41,6 +41,8 @@ export default function PublicScanPage() {
   const [returnPin, setReturnPin] = useState('')
   const [returnBarcode, setReturnBarcode] = useState('')
   const [returnBorrowerName, setReturnBorrowerName] = useState('')
+  const [liveResults, setLiveResults] = useState<(Item & { category?: { name: string } })[]>([])
+  const [liveSearchLoading, setLiveSearchLoading] = useState(false)
 
   async function handleScan(barcode: string) {
     setLoading(true)
@@ -154,17 +156,71 @@ export default function PublicScanPage() {
         </div>
 
         {/* Scanner */}
-        <Card className="backdrop-blur-xl bg-card/80 border-border/50 mb-6 overflow-visible">
+        <Card className="backdrop-blur-xl bg-card/80 border-border/50 mb-4">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Package className="w-5 h-5" />
               Scan Barang
             </CardTitle>
           </CardHeader>
-          <CardContent className="overflow-visible">
-            <BarcodeScanner onScan={handleScan} placeholder="Scan barcode atau ketik nama barang..." />
+          <CardContent>
+            <BarcodeScanner
+              onScan={(barcode) => {
+                setLiveResults([])
+                handleScan(barcode)
+              }}
+              onSearchResults={setLiveResults}
+              onSearchLoading={setLiveSearchLoading}
+              placeholder="Scan barcode atau ketik nama barang..."
+            />
           </CardContent>
         </Card>
+
+        {/* Realtime Search Results — rendered OUTSIDE the Card */}
+        {(liveResults.length > 0 || liveSearchLoading) && (
+          <Card className="backdrop-blur-xl bg-card/80 border-border/50 mb-6 animate-in fade-in duration-200">
+            <CardContent className="pt-4 pb-2">
+              {liveSearchLoading && liveResults.length === 0 && (
+                <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Mencari...
+                </div>
+              )}
+              <div className="divide-y divide-border/30">
+                {liveResults.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 py-3 cursor-pointer hover:bg-muted/30 rounded-lg px-2 -mx-2 transition-colors"
+                    onClick={() => {
+                      setLiveResults([])
+                      handleScan(item.barcode)
+                    }}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${item.status === 'borrowed'
+                        ? 'bg-yellow-500/10'
+                        : 'bg-emerald-500/10'
+                      }`}>
+                      <Package className={`w-4 h-4 ${item.status === 'borrowed' ? 'text-yellow-400' : 'text-emerald-400'
+                        }`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {item.code} • {item.category?.name || ''}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`shrink-0 text-[10px] ${ITEM_STATUS_COLORS[item.status] || ''}`}
+                    >
+                      {ITEM_STATUS_LABELS[item.status] || item.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Loading */}
         {loading && (
