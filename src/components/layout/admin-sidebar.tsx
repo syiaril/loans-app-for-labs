@@ -78,8 +78,9 @@ export default function AdminSidebar() {
 
             toast.success('Berhasil logout', { id: logoutToast })
             router.replace('/login')
-        } catch (error: any) {
-            toast.error('Gagal logout: ' + error.message, { id: logoutToast })
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Unknown error'
+            toast.error('Gagal logout: ' + message, { id: logoutToast })
         }
     }
 

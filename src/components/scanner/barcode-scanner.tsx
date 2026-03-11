@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 
 interface BarcodeScannerProps {
     onScan: (barcode: string) => void
-    onSearchResults?: (results: any[]) => void
+    onSearchResults?: (results: unknown[]) => void
     onSearchLoading?: (loading: boolean) => void
     placeholder?: string
     autoFocus?: boolean
@@ -86,7 +86,7 @@ export default function BarcodeScanner({
 
             // Try BarcodeDetector API
             if ('BarcodeDetector' in window) {
-                // @ts-ignore
+                // @ts-expect-error - BarcodeDetector is not yet in all TS environments
                 const detector = new BarcodeDetector({
                     formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code', 'upc_a', 'upc_e']
                 })
@@ -105,8 +105,8 @@ export default function BarcodeScanner({
             } else {
                 toast.info('Browser tidak mendukung BarcodeDetector. Silakan ketik kode manual.')
             }
-        } catch (err: any) {
-            const msg = err?.message || ''
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : ''
             if (msg.includes('Permission') || msg.includes('NotAllowed')) {
                 toast.error('Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser.')
             } else if (msg.includes('NotFound') || msg.includes('DevicesNotFound')) {
