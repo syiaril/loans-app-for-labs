@@ -169,7 +169,7 @@ export default function PublicScanPage() {
                 setLiveResults([])
                 handleScan(barcode)
               }}
-              onSearchResults={(results) => setLiveResults(results as any)}
+              onSearchResults={(results) => setLiveResults(results as (Item & { category?: { name: string } })[])}
               onSearchLoading={setLiveSearchLoading}
               placeholder="Scan barcode atau ketik nama barang..."
             />
