@@ -178,7 +178,9 @@ export default function LoginPage() {
                     .select('id, email, name, pin')
                     .or('card_barcode.is.null,card_barcode.eq.')
                 
-                const matchedProfile = fallbackProfiles?.find(p => p.id.startsWith(cleanBarcode))
+                // Physical scanners often skip or drop hyphens. Strip hyphens from both before comparing.
+                const cleanBarcodeNoHyphens = cleanBarcode.replace(/-/g, '')
+                const matchedProfile = fallbackProfiles?.find(p => p.id.replace(/-/g, '').startsWith(cleanBarcodeNoHyphens))
                 if (matchedProfile) {
                     profile = matchedProfile
                     error = null
