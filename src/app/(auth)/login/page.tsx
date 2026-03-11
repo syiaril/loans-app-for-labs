@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,33 @@ export default function LoginPage() {
     const [pin, setPin] = useState('')
     const [showPinInput, setShowPinInput] = useState(false)
     const [barcodeUser, setBarcodeUser] = useState<{ id: string; email: string; name: string; pin: string | null } | null>(null)
+    const barcodeInputRef = useRef<HTMLInputElement>(null)
+
+    // Global Keydown listener for the scanner
+    useEffect(() => {
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            if (e.ctrlKey || e.metaKey || e.altKey) return
+
+            const activeElement = document.activeElement as HTMLElement
+            const isInput = activeElement.tagName === 'INPUT' || 
+                            activeElement.tagName === 'TEXTAREA' || 
+                            activeElement.isContentEditable
+
+            if (isInput && activeElement !== barcodeInputRef.current) return
+
+            if (activeElement !== barcodeInputRef.current && barcodeInputRef.current && !showPinInput) {
+                barcodeInputRef.current.focus()
+                if (e.key.length === 1) {
+                    barcodeInputRef.current.value += e.key
+                    setBarcode(barcodeInputRef.current.value)
+                    e.preventDefault() 
+                }
+            }
+        }
+
+        window.addEventListener('keydown', handleGlobalKeyDown)
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+    }, [showPinInput])
 
     // Guest registration state
     const [guestName, setGuestName] = useState('')
@@ -279,15 +306,15 @@ export default function LoginPage() {
                         <CardDescription>Pilih metode login di bawah ini</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Tabs defaultValue="manual" className="w-full">
+                        <Tabs defaultValue="barcode" className="w-full">
                             <TabsList className="grid w-full grid-cols-3">
-                                <TabsTrigger value="manual" className="text-xs">
-                                    <LogIn className="w-3 h-3 mr-1" />
-                                    Email
-                                </TabsTrigger>
                                 <TabsTrigger value="barcode" className="text-xs">
                                     <ScanBarcode className="w-3 h-3 mr-1" />
                                     Barcode
+                                </TabsTrigger>
+                                <TabsTrigger value="manual" className="text-xs">
+                                    <LogIn className="w-3 h-3 mr-1" />
+                                    Email
                                 </TabsTrigger>
                                 <TabsTrigger value="guest" className="text-xs">
                                     <UserPlus className="w-3 h-3 mr-1" />
@@ -337,36 +364,65 @@ export default function LoginPage() {
                             <TabsContent value="barcode">
                                 <form onSubmit={handleBarcodeLogin} className="space-y-4 mt-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="barcode">Scan Barcode Kartu</Label>
-                                        <Input
-                                            id="barcode"
-                                            placeholder="Scan atau ketik barcode kartu..."
-                                            value={barcode}
-                                            onChange={(e) => setBarcode(e.target.value)}
-                                            autoFocus
-                                            required
-                                        />
-                                    </div>
-                                    {showPinInput && (
-                                        <div className="space-y-2">
-                                            <Label htmlFor="pin">PIN (6 digit)</Label>
+                                        <Label htmlFor="barcode">Scan Barcode Kartu ID</Label>
+                                        <div className="relative">
                                             <Input
-                                                id="pin"
-                                                type="password"
-                                                maxLength={6}
-                                                placeholder="Masukkan PIN"
-                                                value={pin}
-                                                onChange={(e) => setPin(e.target.value)}
+                                                id="barcode"
+                                                ref={barcodeInputRef}
+                                                placeholder="Scan atau ketik barcode kartu..."
+                                                value={barcode}
+                                                onChange={(e) => setBarcode(e.target.value)}
+                                                disabled={showPinInput}
+                                                autoFocus
                                                 required
                                             />
-                                            <p className="text-xs text-muted-foreground">
-                                                Halo {barcodeUser?.name}! Masukkan PIN untuk melanjutkan.
-                                            </p>
+                                        </div>
+                                    </div>
+                                    {showPinInput && (
+                                        <div className="space-y-4 pt-2 border-t border-border/50">
+                                            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                                                <p className="text-sm font-medium text-emerald-500 mb-1">
+                                                    Identitas Ditemukan!
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Halo <strong>{barcodeUser?.name}</strong>, silakan masukkan PIN Anda untuk melanjutkan peminjaman.
+                                                </p>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label htmlFor="pin">PIN Keamanan (6 digit)</Label>
+                                                <Input
+                                                    id="pin"
+                                                    type="password"
+                                                    maxLength={6}
+                                                    placeholder="Masukkan PIN"
+                                                    value={pin}
+                                                    onChange={(e) => setPin(e.target.value)}
+                                                    autoFocus
+                                                    required
+                                                    className="text-center tracking-widest text-lg"
+                                                />
+                                            </div>
                                         </div>
                                     )}
                                     <Button type="submit" className="w-full" disabled={loading}>
-                                        {loading ? 'Memproses...' : showPinInput ? 'Verifikasi PIN' : 'Login dengan Barcode'}
+                                        {loading ? 'Memproses...' : showPinInput ? 'MASUK SEKARANG' : 'Cek Barcode'}
                                     </Button>
+                                    {showPinInput && (
+                                        <Button 
+                                            type="button" 
+                                            variant="ghost" 
+                                            className="w-full mt-2"
+                                            onClick={() => {
+                                                setShowPinInput(false)
+                                                setBarcode('')
+                                                setPin('')
+                                                setBarcodeUser(null)
+                                                setTimeout(() => barcodeInputRef.current?.focus(), 100)
+                                            }}
+                                        >
+                                            Batal / Scan Ulang
+                                        </Button>
+                                    )}
                                 </form>
                             </TabsContent>
 
