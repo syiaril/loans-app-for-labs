@@ -159,111 +159,107 @@ export default function LoginPage() {
         setLoading(true)
         const supabase = createClient()
 
-        // Sanitize scanner input: some scanners inject double quotes around the string (e.g. "1234")
+        // Sanitize scanner input: some scanners inject double quotes around the string
         const cleanBarcode = barcode.replace(/"/g, '').trim()
 
-        // Lookup user by barcode
-        let { data: profile, error } = await supabase
-            .from('profiles')
-            .select('id, email, name, pin')
-            .eq('card_barcode', cleanBarcode)
-            .single()
+        try {
+            // Call the secure API route to bypass RLS for unauthenticated profiles read
+            const res = await fetch('/api/auth/barcode', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ barcode: cleanBarcode }),
+            })
 
-        // Fallback for auto-generated barcodes (which are the first 12 chars of the user ID)
-        if (error || !profile) {
-            // Only try fallback if the scanned value looks like part of a UUID (alphanumeric, hyphens maybe, at least 8 chars)
-            if (cleanBarcode.length >= 8) {
-                const { data: fallbackProfiles } = await supabase
-                    .from('profiles')
-                    .select('id, email, name, pin')
-                    .or('card_barcode.is.null,card_barcode.eq.')
-                
-                // Physical scanners often skip or drop hyphens. Strip hyphens from both before comparing.
-                const cleanBarcodeNoHyphens = cleanBarcode.replace(/-/g, '')
-                const matchedProfile = fallbackProfiles?.find(p => p.id.replace(/-/g, '').startsWith(cleanBarcodeNoHyphens))
-                if (matchedProfile) {
-                    profile = matchedProfile
-                    error = null
+            if (!res.ok) {
+                console.error('Barcode login failed. API returned:', res.status)
+                toast.error(`Kartu tidak ditemukan. Barcode yang discan: "${cleanBarcode}"`)
+                setBarcode('')
+                if (barcodeInputRef.current) {
+                    barcodeInputRef.current.value = ''
+                    barcodeInputRef.current.focus()
                 }
+                setLoading(false)
+                return
             }
-        }
 
-        if (error || !profile) {
-            console.error('Barcode login failed. Scanned barcode:', `"${barcode}"`, 'Cleaned barcode:', `"${cleanBarcode}"`)
-            toast.error(`Kartu tidak ditemukan. Barcode yang discan: "${cleanBarcode}"`)
-            setBarcode('')
-            if (barcodeInputRef.current) {
-                barcodeInputRef.current.value = ''
-                barcodeInputRef.current.focus()
+            const profile = await res.json()
+
+            if (!profile) {
+                toast.error('Data profil tidak valid.')
+                setLoading(false)
+                return
+            }
+
+            if (profile.pin && !showPinInput) {
+                setBarcodeUser(profile)
+                setShowPinInput(true)
+                setLoading(false)
+                return
+            }
+
+            if (profile.pin && pin !== profile.pin) {
+                toast.error('PIN salah!')
+                setLoading(false)
+                return
+            }
+
+            // Sign in with stored email
+            if (!profile.email) {
+                toast.error('Akun ini tidak memiliki email terdaftar')
+                setLoading(false)
+                return
+            }
+
+            // Try standard passwords for seeded users if it's a known email pattern
+            const loginPassword = profile.email.includes('siswa') ? 'siswa123' :
+                profile.email.includes('guru') ? 'guru1234' :
+                    profile.email.includes('admin') ? 'admin123' : 'password123'
+
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email: profile.email,
+                password: loginPassword,
+            })
+
+            if (authError) {
+                toast.error('Login gagal: ' + authError.message)
+                setLoading(false)
+                return
+            }
+
+            await supabase.from('audit_logs').insert({
+                user_id: authData.user.id,
+                action: 'login',
+                description: 'Login via scan barcode kartu',
+            })
+
+            const success = await processCartAfterLogin(authData.user.id)
+            if (cartItems.length > 0 && !success) {
+                setLoading(false)
+                return
+            }
+
+            const { data: fullProfile } = await supabase
+                .from('profiles')
+                .select('role, is_approved')
+                .eq('id', authData.user.id)
+                .single()
+
+            if (fullProfile && !fullProfile.is_approved) {
+                router.push('/pending-approval')
+            } else if (fullProfile?.role === 'admin') {
+                router.push('/admin/dashboard')
+            } else {
+                router.push('/borrower/dashboard')
             }
             setLoading(false)
-            return
-        }
 
-        if (profile.pin && !showPinInput) {
-            setBarcodeUser(profile)
-            setShowPinInput(true)
+        } catch (err: any) {
+            console.error('Login error:', err)
+            toast.error('Terjadi kesalahan jaringan')
             setLoading(false)
-            return
         }
-
-        if (profile.pin && pin !== profile.pin) {
-            toast.error('PIN salah!')
-            setLoading(false)
-            return
-        }
-
-        // Sign in with stored email
-        if (!profile.email) {
-            toast.error('Akun ini tidak memiliki email terdaftar')
-            setLoading(false)
-            return
-        }
-
-        // Try standard passwords for seeded users if it's a known email pattern
-        // In a real app, you'd have a more robust way to handle this
-        const loginPassword = profile.email.includes('siswa') ? 'siswa123' :
-            profile.email.includes('guru') ? 'guru1234' :
-                profile.email.includes('admin') ? 'admin123' : 'password123'
-
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            email: profile.email,
-            password: loginPassword,
-        })
-
-        if (authError) {
-            toast.error('Login gagal: ' + authError.message)
-            setLoading(false)
-            return
-        }
-
-        await supabase.from('audit_logs').insert({
-            user_id: authData.user.id,
-            action: 'login',
-            description: 'Login via scan barcode kartu',
-        })
-
-        const success = await processCartAfterLogin(authData.user.id)
-        if (cartItems.length > 0 && !success) {
-            setLoading(false)
-            return
-        }
-
-        const { data: fullProfile } = await supabase
-            .from('profiles')
-            .select('role, is_approved')
-            .eq('id', authData.user.id)
-            .single()
-
-        if (fullProfile && !fullProfile.is_approved) {
-            router.push('/pending-approval')
-        } else if (fullProfile?.role === 'admin') {
-            router.push('/admin/dashboard')
-        } else {
-            router.push('/borrower/dashboard')
-        }
-        setLoading(false)
     }
+
 
     async function handleGuestRegister(e: React.FormEvent) {
         e.preventDefault()
