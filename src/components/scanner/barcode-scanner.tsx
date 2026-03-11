@@ -39,19 +39,28 @@ export default function BarcodeScanner({
 
         // Catch global keystrokes for the scanner
         const handleGlobalKeyDown = (e: KeyboardEvent) => {
-            // Ignore if already in our input or any other input/editable
+            // Ignore if using modifier keys (Cmd, Ctrl, Alt)
+            if (e.ctrlKey || e.metaKey || e.altKey) return
+
             const activeElement = document.activeElement as HTMLElement
             const isInput = activeElement.tagName === 'INPUT' || 
                             activeElement.tagName === 'TEXTAREA' || 
                             activeElement.isContentEditable
 
+            // If we are already in another input, don't hijack
             if (isInput && activeElement !== inputRef.current) return
 
-            // If we're not focused, focus us
+            // If we're not focused, focus us and append the char
             if (activeElement !== inputRef.current && inputRef.current) {
-                // Ignore function keys, control keys, tabs, etc.
+                // Only for letters/numbers or Enter
                 if (e.key.length === 1 || e.key === 'Enter') {
                     inputRef.current.focus()
+                    // If it's a character, let's manually append it so we don't lose it
+                    // during the focus transition for very fast scanners
+                    if (e.key.length === 1) {
+                        setManualInput(prev => prev + e.key)
+                        e.preventDefault() // prevent double char in some browsers
+                    }
                 }
             }
         }
