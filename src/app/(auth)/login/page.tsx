@@ -159,17 +159,19 @@ export default function LoginPage() {
         setLoading(true)
         const supabase = createClient()
 
+        // Sanitize scanner input: some scanners inject double quotes around the string (e.g. "1234")
+        const cleanBarcode = barcode.replace(/"/g, '').trim()
+
         // Lookup user by barcode
         let { data: profile, error } = await supabase
             .from('profiles')
             .select('id, email, name, pin')
-            .eq('card_barcode', barcode)
+            .eq('card_barcode', cleanBarcode)
             .single()
 
         // Fallback for auto-generated barcodes (which are the first 12 chars of the user ID)
         if (error || !profile) {
             // Only try fallback if the scanned value looks like part of a UUID (alphanumeric, hyphens maybe, at least 8 chars)
-            const cleanBarcode = barcode.trim()
             if (cleanBarcode.length >= 8) {
                 const { data: fallbackProfiles } = await supabase
                     .from('profiles')
@@ -185,8 +187,8 @@ export default function LoginPage() {
         }
 
         if (error || !profile) {
-            console.error('Barcode login failed. Scanned barcode:', `"${barcode}"`, 'Cleaned barcode:', `"${barcode.trim()}"`)
-            toast.error(`Kartu tidak ditemukan. Barcode yang discan: "${barcode}"`)
+            console.error('Barcode login failed. Scanned barcode:', `"${barcode}"`, 'Cleaned barcode:', `"${cleanBarcode}"`)
+            toast.error(`Kartu tidak ditemukan. Barcode yang discan: "${cleanBarcode}"`)
             setBarcode('')
             if (barcodeInputRef.current) {
                 barcodeInputRef.current.value = ''
