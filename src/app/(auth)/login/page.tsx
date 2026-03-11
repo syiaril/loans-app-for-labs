@@ -159,12 +159,26 @@ export default function LoginPage() {
         setLoading(true)
         const supabase = createClient()
 
-        // Lookup user by barcode - use service role or RPC
-        const { data: profile, error } = await supabase
+        // Lookup user by barcode
+        let { data: profile, error } = await supabase
             .from('profiles')
             .select('id, email, name, pin')
             .eq('card_barcode', barcode)
             .single()
+
+        // Fallback for auto-generated barcodes (which are the first 12 chars of the user ID)
+        if ((error || !profile) && barcode.length === 12) {
+            const { data: fallbackProfiles } = await supabase
+                .from('profiles')
+                .select('id, email, name, pin')
+                .is('card_barcode', null)
+            
+            const matchedProfile = fallbackProfiles?.find(p => p.id.startsWith(barcode))
+            if (matchedProfile) {
+                profile = matchedProfile
+                error = null
+            }
+        }
 
         if (error || !profile) {
             toast.error('Kartu tidak ditemukan. Pastikan barcode benar.')
