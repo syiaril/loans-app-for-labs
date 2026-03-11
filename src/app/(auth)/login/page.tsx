@@ -168,6 +168,11 @@ export default function LoginPage() {
 
         if (error || !profile) {
             toast.error('Kartu tidak ditemukan. Pastikan barcode benar.')
+            setBarcode('')
+            if (barcodeInputRef.current) {
+                barcodeInputRef.current.value = ''
+                barcodeInputRef.current.focus()
+            }
             setLoading(false)
             return
         }
