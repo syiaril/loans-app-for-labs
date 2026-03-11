@@ -9,7 +9,8 @@ import { cn } from '@/lib/utils'
 
 interface BarcodeScannerProps {
     onScan: (barcode: string) => void
-    onSearchResults?: (results: unknown[]) => void
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onSearchResults?: (results: any[]) => void
     onSearchLoading?: (loading: boolean) => void
     placeholder?: string
     autoFocus?: boolean
