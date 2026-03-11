@@ -2,10 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Camera, CameraOff, Keyboard, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { Keyboard } from 'lucide-react'
 
 interface BarcodeScannerProps {
     onScan: (barcode: string) => void
@@ -24,13 +21,8 @@ export default function BarcodeScanner({
     autoFocus = true,
 }: BarcodeScannerProps) {
     const [manualInput, setManualInput] = useState('')
-    const [cameraActive, setCameraActive] = useState(false)
-    const [cameraLoading, setCameraLoading] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
-    const videoRef = useRef<HTMLVideoElement>(null)
-    const streamRef = useRef<MediaStream | null>(null)
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-    const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
     useEffect(() => {
         if (autoFocus && inputRef.current) {
@@ -52,15 +44,16 @@ export default function BarcodeScanner({
 
             // If we're not focused, focus us and append the char
             if (activeElement !== inputRef.current && inputRef.current) {
-                // Only for letters/numbers or Enter
-                if (e.key.length === 1 || e.key === 'Enter') {
-                    inputRef.current.focus()
-                    // If it's a character, let's manually append it so we don't lose it
-                    // during the focus transition for very fast scanners
-                    if (e.key.length === 1) {
-                        setManualInput(prev => prev + e.key)
-                        e.preventDefault() // prevent double char in some browsers
-                    }
+                // Focus the input
+                inputRef.current.focus()
+
+                // If it's a character, let's manually append it so we don't lose it
+                if (e.key.length === 1) {
+                    // Use direct DOM manipulation for the first char to ensure it's there
+                    inputRef.current.value += e.key
+                    // Still trigger state update for UI
+                    setManualInput(inputRef.current.value)
+                    e.preventDefault() 
                 }
             }
         }
@@ -68,12 +61,6 @@ export default function BarcodeScanner({
         window.addEventListener('keydown', handleGlobalKeyDown)
         return () => window.removeEventListener('keydown', handleGlobalKeyDown)
     }, [autoFocus])
-
-    useEffect(() => {
-        return () => {
-            stopCamera()
-        }
-    }, [])
 
     function handleInputChange(value: string) {
         setManualInput(value)
@@ -101,160 +88,47 @@ export default function BarcodeScanner({
         }, 250)
     }
 
-    async function startCamera() {
-        setCameraLoading(true)
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-            })
-            streamRef.current = stream
-
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream
-                await videoRef.current.play()
-            }
-
-            setCameraActive(true)
-
-            // Try BarcodeDetector API
-            if ('BarcodeDetector' in window) {
-                // @ts-expect-error - BarcodeDetector is not yet in all TS environments
-                const detector = new BarcodeDetector({
-                    formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'qr_code', 'upc_a', 'upc_e']
-                })
-                scanIntervalRef.current = setInterval(async () => {
-                    if (!videoRef.current || videoRef.current.readyState !== 4) return
-                    try {
-                        const barcodes = await detector.detect(videoRef.current)
-                        if (barcodes.length > 0) {
-                            const code = barcodes[0].rawValue
-                            toast.success(`Barcode terdeteksi: ${code}`)
-                            onScan(code)
-                            stopCamera()
-                        }
-                    } catch { }
-                }, 200)
-            } else {
-                toast.info('Browser tidak mendukung BarcodeDetector. Silakan ketik kode manual.')
-            }
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : ''
-            if (msg.includes('Permission') || msg.includes('NotAllowed')) {
-                toast.error('Izin kamera ditolak. Silakan izinkan akses kamera di pengaturan browser.')
-            } else if (msg.includes('NotFound') || msg.includes('DevicesNotFound')) {
-                toast.error('Kamera tidak ditemukan pada perangkat ini.')
-            } else {
-                toast.error('Gagal mengakses kamera: ' + msg)
-            }
-        } finally {
-            setCameraLoading(false)
-        }
-    }
-
-    function stopCamera() {
-        if (scanIntervalRef.current) {
-            clearInterval(scanIntervalRef.current)
-            scanIntervalRef.current = null
-        }
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop())
-            streamRef.current = null
-        }
-        if (videoRef.current) {
-            videoRef.current.srcObject = null
-        }
-        setCameraActive(false)
-    }
-
     function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-        if (e.key === 'Enter' && manualInput.trim()) {
-            e.preventDefault()
-            onScan(manualInput.trim())
-            setManualInput('')
-            onSearchResults?.([])
+        if (e.key === 'Enter') {
+            // Use e.currentTarget.value directly to get the most recent keyboard buffer
+            // bypassing any React state synchronization lag for high-speed scanners
+            const value = e.currentTarget.value.trim()
+            if (value) {
+                e.preventDefault()
+                onScan(value)
+                setManualInput('')
+                // Clear the DOM value directly too
+                e.currentTarget.value = ''
+                onSearchResults?.([])
+            }
         }
     }
 
     return (
         <div className="space-y-3">
-            <div className="flex gap-2">
-                <div className="relative flex-1">
-                    <Keyboard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
-                    <Input
-                        ref={inputRef}
-                        type="text"
-                        placeholder={placeholder}
-                        value={manualInput}
-                        onChange={(e) => handleInputChange(e.target.value)}
-                        onKeyDown={handleKeyDown}
-                        className="pl-10 h-12 text-lg focus-visible:ring-primary/50"
-                        autoComplete="off"
-                    />
-                    {autoFocus && (
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-[10px] font-medium text-emerald-500/80 uppercase tracking-wider hidden sm:inline">Siap Scan</span>
-                        </div>
-                    )}
-                </div>
-                <Button
-                    type="button"
-                    variant={cameraActive ? 'destructive' : 'outline'}
-                    size="icon"
-                    className="h-12 w-12"
-                    onClick={cameraActive ? stopCamera : startCamera}
-                    disabled={cameraLoading}
-                >
-                    {cameraLoading ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : cameraActive ? (
-                        <CameraOff className="w-5 h-5" />
-                    ) : (
-                        <Camera className="w-5 h-5" />
-                    )}
-                </Button>
-            </div>
-
-            {/* Camera Preview — Persistent element to avoid losing stream */}
-            <div
-                className={cn(
-                    "relative rounded-xl overflow-hidden border border-border bg-black transition-all duration-300",
-                    cameraActive ? "h-[300px] opacity-100 mb-2" : "h-0 opacity-0 overflow-hidden border-none"
-                )}
-            >
-                <video
-                    ref={videoRef}
-                    className="w-full h-full object-cover"
-                    playsInline
-                    muted
-                    autoPlay
+            <div className="relative">
+                <Keyboard className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground z-10" />
+                <Input
+                    ref={inputRef}
+                    type="text"
+                    placeholder={placeholder}
+                    value={manualInput}
+                    onChange={(e) => handleInputChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    className="pl-11 h-14 text-lg focus-visible:ring-primary/50 bg-background/50 backdrop-blur-sm border-primary/20"
+                    autoComplete="off"
                 />
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="w-64 h-24 border-2 border-primary/50 rounded-lg" />
-                </div>
-                <div className="absolute top-2 right-2">
-                    <Button
-                        size="sm"
-                        variant="secondary"
-                        className="h-8 bg-black/50 backdrop-blur-md border-white/10 text-white"
-                        onClick={() => { stopCamera(); setTimeout(startCamera, 100); }}
-                    >
-                        Muat Ulang
-                    </Button>
-                </div>
+                {autoFocus && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                        <span className="text-xs font-semibold text-emerald-500 uppercase tracking-widest hidden sm:inline">Scanner Aktif</span>
+                    </div>
+                )}
             </div>
 
-            {!cameraActive && (
-                <p className="text-xs text-muted-foreground text-center">
-                    Scan barcode otomatis saat Enter • Ketik nama barang untuk cari realtime 📷
-                </p>
-            )}
-
-            {cameraActive && (
-                <p className="text-xs text-primary font-medium text-center animate-pulse">
-                    Kamera aktif. Silakan arahkan barcode ke kotak di atas.
-                </p>
-            )}
+            <p className="text-xs text-muted-foreground text-center">
+                Silakan scan barcode barang pakai alat scanner fisik Anda atau ketik nama barang untuk cari manual 📷
+            </p>
         </div>
     )
 }
