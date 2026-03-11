@@ -25,6 +25,7 @@ export default function UsersPage() {
     const [roleFilter, setRoleFilter] = useState('all')
     const [approvalFilter, setApprovalFilter] = useState('all')
     const [page, setPage] = useState(0)
+    const [totalItems, setTotalItems] = useState(0)
     const perPage = 20
 
     useEffect(() => { loadUsers() }, [page])
@@ -37,8 +38,9 @@ export default function UsersPage() {
         if (approvalFilter === 'approved') query = query.eq('is_approved', true)
         if (approvalFilter === 'pending') query = query.eq('is_approved', false)
         if (search) query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,card_barcode.ilike.%${search}%,department.ilike.%${search}%`)
-        const { data } = await query.order('created_at', { ascending: false }).range(page * perPage, (page + 1) * perPage - 1)
+        const { data, count } = await query.order('created_at', { ascending: false }).range(page * perPage, (page + 1) * perPage - 1)
         setUsers(data || [])
+        if (count !== null) setTotalItems(count)
         setLoading(false)
     }
 
@@ -213,7 +215,7 @@ export default function UsersPage() {
                             </Table>
                         </div>
                     )}
-                    <DataPagination page={page} perPage={perPage} currentCount={users.length} onPageChange={setPage} />
+                    <DataPagination page={page} perPage={perPage} totalItems={totalItems} currentCount={users.length} onPageChange={setPage} />
                 </CardContent>
             </Card>
         </div>

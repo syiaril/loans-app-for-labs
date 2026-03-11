@@ -27,6 +27,7 @@ export default function ItemsPage() {
     const [catFilter, setCatFilter] = useState('all')
     const [statusFilter, setStatusFilter] = useState('all')
     const [page, setPage] = useState(0)
+    const [totalItems, setTotalItems] = useState(0)
     const perPage = 20
 
     useEffect(() => { loadData() }, [page])
@@ -34,15 +35,21 @@ export default function ItemsPage() {
     async function loadData() {
         setLoading(true)
         const supabase = createClient()
-        const { data: cats } = await supabase.from('categories').select('*').eq('is_active', true)
-        setCategories(cats || [])
-
+        
         let query = supabase.from('items').select('*, category:categories(name)', { count: 'exact' })
         if (catFilter !== 'all') query = query.eq('category_id', catFilter)
         if (statusFilter !== 'all') query = query.eq('status', statusFilter)
         if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,barcode.ilike.%${search}%`)
-        const { data } = await query.order('created_at', { ascending: false }).range(page * perPage, (page + 1) * perPage - 1)
-        setItems(data || [])
+        
+        // Execute both queries concurrently
+        const [catsRes, itemsRes] = await Promise.all([
+            supabase.from('categories').select('*').eq('is_active', true),
+            query.order('created_at', { ascending: false }).range(page * perPage, (page + 1) * perPage - 1)
+        ])
+
+        setCategories(catsRes.data || [])
+        setItems(itemsRes.data || [])
+        if (itemsRes.count !== null) setTotalItems(itemsRes.count)
         setLoading(false)
     }
 
@@ -177,7 +184,7 @@ export default function ItemsPage() {
                             </Table>
                         </div>
                     )}
-                    <DataPagination page={page} perPage={perPage} currentCount={items.length} onPageChange={setPage} />
+                    <DataPagination page={page} perPage={perPage} totalItems={totalItems} currentCount={items.length} onPageChange={setPage} />
                 </CardContent>
             </Card>
         </div>

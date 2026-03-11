@@ -21,6 +21,7 @@ export default function LoansPage() {
     const [search, setSearch] = useState('')
     const [statusFilter, setStatusFilter] = useState('all')
     const [page, setPage] = useState(0)
+    const [totalItems, setTotalItems] = useState(0)
     const perPage = 20
 
     useEffect(() => { loadLoans() }, [page])
@@ -31,8 +32,9 @@ export default function LoansPage() {
         let query = supabase.from('loans').select('*, user:profiles(name, department), loan_items(id)', { count: 'exact' })
         if (statusFilter !== 'all') query = query.eq('status', statusFilter)
         if (search) query = query.or(`loan_code.ilike.%${search}%`)
-        const { data } = await query.order('created_at', { ascending: false }).range(page * perPage, (page + 1) * perPage - 1)
+        const { data, count } = await query.order('created_at', { ascending: false }).range(page * perPage, (page + 1) * perPage - 1)
         setLoans(data || [])
+        if (count !== null) setTotalItems(count)
         setLoading(false)
     }
 
@@ -117,7 +119,7 @@ export default function LoansPage() {
                             </Table>
                         </div>
                     )}
-                    <DataPagination page={page} perPage={perPage} currentCount={loans.length} onPageChange={setPage} />
+                    <DataPagination page={page} perPage={perPage} totalItems={totalItems} currentCount={loans.length} onPageChange={setPage} />
                 </CardContent>
             </Card>
         </div>
