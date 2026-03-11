@@ -16,7 +16,7 @@ export default async function AdminDashboard() {
     today.setHours(0, 0, 0, 0)
     const todayISO = today.toISOString()
 
-    // Stats queries
+    // Run ALL stats & data queries concurrently to minimize network roundtrips
     const [
         { count: todayLoans },
         { count: activeLoans },
@@ -25,6 +25,9 @@ export default async function AdminDashboard() {
         { count: totalItems },
         { count: borrowedItems },
         { count: problemItems },
+        { data: recentLogs },
+        { data: activeLoansData },
+        { data: pendingUsersData },
     ] = await Promise.all([
         supabase.from('loans').select('*', { count: 'exact', head: true }).gte('created_at', todayISO),
         supabase.from('loans').select('*', { count: 'exact', head: true }).in('status', ['borrowed', 'partial_return', 'approved']),
@@ -33,29 +36,12 @@ export default async function AdminDashboard() {
         supabase.from('items').select('*', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('items').select('*', { count: 'exact', head: true }).eq('status', 'borrowed'),
         supabase.from('items').select('*', { count: 'exact', head: true }).in('status', ['maintenance', 'lost']),
+        
+        // Data lists
+        supabase.from('audit_logs').select('*, user:profiles(name)').order('created_at', { ascending: false }).limit(10),
+        supabase.from('loans').select('*, user:profiles(name, department)').in('status', ['borrowed', 'partial_return', 'overdue', 'approved']).order('created_at', { ascending: false }).limit(10),
+        supabase.from('profiles').select('*').eq('is_approved', false).order('created_at', { ascending: false }),
     ])
-
-    // Recent audit logs
-    const { data: recentLogs } = await supabase
-        .from('audit_logs')
-        .select('*, user:profiles(name)')
-        .order('created_at', { ascending: false })
-        .limit(10)
-
-    // Active loans
-    const { data: activeLoansData } = await supabase
-        .from('loans')
-        .select('*, user:profiles(name, department)')
-        .in('status', ['borrowed', 'partial_return', 'overdue', 'approved'])
-        .order('created_at', { ascending: false })
-        .limit(10)
-
-    // Pending users
-    const { data: pendingUsersData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('is_approved', false)
-        .order('created_at', { ascending: false })
 
     const statCards = [
         { label: 'Peminjaman Hari Ini', value: todayLoans ?? 0, icon: Clock, color: 'text-blue-400', bg: 'bg-blue-500/10' },
