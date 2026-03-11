@@ -36,6 +36,21 @@ export default function BarcodeScanner({
         if (autoFocus && inputRef.current) {
             inputRef.current.focus()
         }
+
+        // Keep focus on input unless clicking other interactive elements
+        const handleGlobalClick = (e: MouseEvent) => {
+            if (!autoFocus) return
+            
+            const target = e.target as HTMLElement
+            const isInteractive = target.closest('button, a, input, select, [role="button"]')
+            
+            if (!isInteractive && inputRef.current) {
+                inputRef.current.focus()
+            }
+        }
+
+        window.addEventListener('click', handleGlobalClick)
+        return () => window.removeEventListener('click', handleGlobalClick)
     }, [autoFocus])
 
     useEffect(() => {
@@ -156,9 +171,15 @@ export default function BarcodeScanner({
                         value={manualInput}
                         onChange={(e) => handleInputChange(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        className="pl-10 h-12 text-lg"
+                        className="pl-10 h-12 text-lg focus-visible:ring-primary/50"
                         autoComplete="off"
                     />
+                    {autoFocus && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[10px] font-medium text-emerald-500/80 uppercase tracking-wider hidden sm:inline">Siap Scan</span>
+                        </div>
+                    )}
                 </div>
                 <Button
                     type="button"

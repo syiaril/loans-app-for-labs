@@ -86,11 +86,12 @@ export default function BarcodePrintPage() {
             try {
                 JsBarcode(canvas, item.barcode, {
                     format: 'CODE128',
-                    width: 2,
-                    height: 50,
+                    width: 2.5, // Increased width for better scanning
+                    height: 60,  // Increased height
                     displayValue: true,
-                    fontSize: 14,
-                    margin: 5,
+                    fontSize: 16,
+                    margin: 10,
+                    background: '#ffffff'
                 })
             } catch {
                 JsBarcode(canvas, item.barcode, {
@@ -102,10 +103,11 @@ export default function BarcodePrintPage() {
             }
             const dataURL = canvas.toDataURL('image/png')
             return `
-                <div style="display:inline-block;border:1px dashed #ccc;padding:8px 12px;margin:4px;text-align:center;page-break-inside:avoid;width:200px;">
-                    <div style="font-size:11px;font-weight:bold;margin-bottom:2px;">${item.name}</div>
-                    <div style="font-size:9px;color:#666;margin-bottom:4px;">${item.code}</div>
-                    <img src="${dataURL}" style="max-width:180px;height:auto;" />
+                <div style="display:inline-block;border:1px solid #eee;padding:15px;margin:5px;text-align:center;page-break-inside:avoid;width:240px;background:white;">
+                    <div style="font-size:14px;font-weight:bold;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.name}</div>
+                    <div style="font-size:11px;color:#666;margin-bottom:8px;">${item.code}</div>
+                    <img src="${dataURL}" style="width:210px;height:auto;display:block;margin:0 auto;" />
+                    <div style="font-size:10px;color:#999;margin-top:5px;letter-spacing:1px;">POJOK LAB - SKENSA</div>
                 </div>
             `
         }).join('')
