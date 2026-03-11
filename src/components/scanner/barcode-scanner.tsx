@@ -37,20 +37,27 @@ export default function BarcodeScanner({
             inputRef.current.focus()
         }
 
-        // Keep focus on input unless clicking other interactive elements
-        const handleGlobalClick = (e: MouseEvent) => {
-            if (!autoFocus) return
-            
-            const target = e.target as HTMLElement
-            const isInteractive = target.closest('button, a, input, select, [role="button"]')
-            
-            if (!isInteractive && inputRef.current) {
-                inputRef.current.focus()
+        // Catch global keystrokes for the scanner
+        const handleGlobalKeyDown = (e: KeyboardEvent) => {
+            // Ignore if already in our input or any other input/editable
+            const activeElement = document.activeElement as HTMLElement
+            const isInput = activeElement.tagName === 'INPUT' || 
+                            activeElement.tagName === 'TEXTAREA' || 
+                            activeElement.isContentEditable
+
+            if (isInput && activeElement !== inputRef.current) return
+
+            // If we're not focused, focus us
+            if (activeElement !== inputRef.current && inputRef.current) {
+                // Ignore function keys, control keys, tabs, etc.
+                if (e.key.length === 1 || e.key === 'Enter') {
+                    inputRef.current.focus()
+                }
             }
         }
 
-        window.addEventListener('click', handleGlobalClick)
-        return () => window.removeEventListener('click', handleGlobalClick)
+        window.addEventListener('keydown', handleGlobalKeyDown)
+        return () => window.removeEventListener('keydown', handleGlobalKeyDown)
     }, [autoFocus])
 
     useEffect(() => {
