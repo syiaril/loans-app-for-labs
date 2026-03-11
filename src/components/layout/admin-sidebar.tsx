@@ -104,11 +104,11 @@ export default function AdminSidebar() {
                 ) : (
                     /* Expanded: logo + title + toggle */
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                            <FlaskConical className="w-5 h-5 text-primary" />
+                        <div className="w-9 h-9 rounded-xl overflow-hidden bg-primary/10 border border-primary/20 shrink-0 flex items-center justify-center p-1">
+                            <img src="https://skensa-rpl.com/images/logo_rpl.png" alt="Logo Pojok Lab" className="w-full h-full object-contain" />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-sm">SiPinjam Lab</p>
+                            <p className="font-semibold text-sm">Pojok Lab</p>
                             <p className="text-xs text-muted-foreground">Admin Panel</p>
                         </div>
                         <Button

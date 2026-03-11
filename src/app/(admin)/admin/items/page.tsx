@@ -134,8 +134,16 @@ export default function ItemsPage() {
                                         <TableRow key={item.id}>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-8 h-8 rounded bg-muted flex items-center justify-center">
-                                                        <Package className="w-4 h-4 text-muted-foreground" />
+                                                    <div className="w-8 h-8 rounded bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+                                                        {item.image ? (
+                                                            <img
+                                                                src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/items/${item.image}`}
+                                                                alt={item.name}
+                                                                className="w-full h-full object-cover"
+                                                            />
+                                                        ) : (
+                                                            <Package className="w-4 h-4 text-muted-foreground" />
+                                                        )}
                                                     </div>
                                                     <span className="font-medium text-sm">{item.name}</span>
                                                 </div>

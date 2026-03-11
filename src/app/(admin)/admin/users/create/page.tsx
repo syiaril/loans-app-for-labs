@@ -25,51 +25,33 @@ export default function CreateUserPage() {
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault()
         setLoading(true)
-        const supabase = createClient()
 
         const email = form.email || `user_${Date.now()}@lab.internal`
 
-        // Create auth user via signup
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-            email,
-            password: form.password || 'password123',
-        })
+        try {
+            const res = await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...form,
+                    email,
+                    password: form.password || 'password123',
+                })
+            })
 
-        if (authError || !authData.user) {
-            toast.error('Gagal membuat akun: ' + (authError?.message || ''))
+            const json = await res.json()
+            if (!res.ok) {
+                throw new Error(json.error || 'Gagal menyimpan pengguna')
+            }
+
+            toast.success('Pengguna berhasil dibuat')
+            router.push('/admin/users')
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : 'Terjadi kesalahan sistem'
+            toast.error(message)
+        } finally {
             setLoading(false)
-            return
         }
-
-        // Create profile
-        const { error: profileError } = await supabase.from('profiles').insert({
-            id: authData.user.id,
-            name: form.name,
-            email,
-            role: form.role,
-            description: form.description || null,
-            department: form.department || null,
-            card_barcode: form.card_barcode || null,
-            pin: form.pin || null,
-            is_approved: form.is_approved,
-        })
-
-        if (profileError) {
-            toast.error('Gagal menyimpan profil: ' + profileError.message)
-            setLoading(false)
-            return
-        }
-
-        await supabase.from('audit_logs').insert({
-            user_id: currentUser?.id,
-            action: 'create',
-            model_type: 'profile',
-            description: `Membuat pengguna baru: ${form.name}`,
-        })
-
-        toast.success('Pengguna berhasil dibuat')
-        router.push('/admin/users')
-        setLoading(false)
     }
 
     return (

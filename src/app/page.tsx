@@ -144,11 +144,11 @@ export default function PublicScanPage() {
       <div className="relative z-10 max-w-2xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-primary/10 border border-primary/20 mb-4 backdrop-blur-sm">
-            <FlaskConical className="w-10 h-10 text-primary" />
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl overflow-hidden bg-white border border-primary/20 mb-4 shadow-xl">
+            <img src="https://skensa-rpl.com/images/logo_rpl.png" alt="Logo Pojok Lab" className="w-full h-full object-contain p-2" />
           </div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-            SiPinjam Lab
+            Pojok Lab
           </h1>
           <p className="text-muted-foreground mt-2">
             Sistem Peminjaman Barang Lab Komputer RPL
@@ -234,8 +234,16 @@ export default function PublicScanPage() {
           <Card className="backdrop-blur-xl bg-card/80 border-border/50 mb-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
             <CardContent className="pt-6">
               <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                  <Package className="w-8 h-8 text-muted-foreground" />
+                <div className="w-16 h-16 rounded-xl bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+                  {scanResult.item.image ? (
+                    <img 
+                      src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/items/${scanResult.item.image}`} 
+                      alt={scanResult.item.name}
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : (
+                    <Package className="w-8 h-8 text-muted-foreground" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-semibold text-lg">{scanResult.item.name}</h3>

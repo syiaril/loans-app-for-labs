@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/use-auth'
-import { Plus, Search, Check, Pencil, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Search, Check, Pencil, Trash2, Loader2, Printer } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import Link from 'next/link'
 import DataPagination from '@/components/data-pagination'
@@ -88,9 +88,17 @@ export default function UsersPage() {
                     <h1 className="text-2xl font-bold">Manajemen Pengguna</h1>
                     <p className="text-muted-foreground">Kelola semua pengguna sistem</p>
                 </div>
-                <Link href="/admin/users/create">
-                    <Button><Plus className="w-4 h-4 mr-2" />Tambah Pengguna</Button>
-                </Link>
+                <div className="flex items-center gap-2">
+                    <Link href="/admin/users/cards">
+                        <Button variant="outline">
+                            <Printer className="w-4 h-4 mr-2" />
+                            Cetak Kartu
+                        </Button>
+                    </Link>
+                    <Link href="/admin/users/create">
+                        <Button><Plus className="w-4 h-4 mr-2" />Tambah Pengguna</Button>
+                    </Link>
+                </div>
             </div>
 
             <Card className="backdrop-blur-xl bg-card/80 border-border/50">

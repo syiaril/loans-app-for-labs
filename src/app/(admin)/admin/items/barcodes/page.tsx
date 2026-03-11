@@ -121,7 +121,7 @@ export default function BarcodePrintPage() {
             <!DOCTYPE html>
             <html>
             <head>
-                <title>Cetak Barcode - SiPinjam Lab</title>
+                <title>Cetak Barcode - Pojok Lab</title>
                 <style>
                     @media print {
                         body { margin: 0; }

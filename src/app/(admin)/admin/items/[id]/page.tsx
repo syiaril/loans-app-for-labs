@@ -31,8 +31,16 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
             <Card className="backdrop-blur-xl bg-card/80 border-border/50">
                 <CardContent className="pt-6">
                     <div className="flex items-start gap-4">
-                        <div className="w-20 h-20 rounded-xl bg-muted flex items-center justify-center">
-                            <Package className="w-10 h-10 text-muted-foreground" />
+                        <div className="w-20 h-20 rounded-xl bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+                            {item.image ? (
+                                <img
+                                    src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/items/${item.image}`}
+                                    alt={item.name}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <Package className="w-10 h-10 text-muted-foreground" />
+                            )}
                         </div>
                         <div className="flex-1">
                             <h2 className="text-xl font-bold">{item.name}</h2>

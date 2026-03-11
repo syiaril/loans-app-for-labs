@@ -59,10 +59,10 @@ export default function BorrowerNavbar() {
                 <div className="flex items-center justify-between h-16">
                     {/* Logo */}
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                            <FlaskConical className="w-5 h-5 text-primary" />
+                        <div className="w-9 h-9 rounded-xl overflow-hidden bg-primary/10 border border-primary/20 flex items-center justify-center p-1">
+                            <img src="https://skensa-rpl.com/images/logo_rpl.png" alt="Logo Pojok Lab" className="w-full h-full object-contain" />
                         </div>
-                        <span className="font-semibold hidden sm:block">SiPinjam Lab</span>
+                        <span className="font-semibold hidden sm:block">Pojok Lab</span>
                     </div>
 
                     {/* Desktop Nav */}
