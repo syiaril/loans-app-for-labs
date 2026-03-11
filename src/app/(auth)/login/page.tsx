@@ -185,7 +185,8 @@ export default function LoginPage() {
         }
 
         if (error || !profile) {
-            toast.error('Kartu tidak ditemukan. Pastikan barcode benar.')
+            console.error('Barcode login failed. Scanned barcode:', `"${barcode}"`, 'Cleaned barcode:', `"${barcode.trim()}"`)
+            toast.error(`Kartu tidak ditemukan. Barcode yang discan: "${barcode}"`)
             setBarcode('')
             if (barcodeInputRef.current) {
                 barcodeInputRef.current.value = ''
