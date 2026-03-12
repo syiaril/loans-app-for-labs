@@ -21,17 +21,36 @@ export default function AuditLogPage() {
     const [page, setPage] = useState(0)
     const perPage = 50
 
-    useEffect(() => { loadLogs() }, [page])
+    const supabase = createClient()
 
-    async function loadLogs() {
-        setLoading(true)
-        const supabase = createClient()
-        let query = supabase.from('audit_logs').select('*, user:profiles(name)')
-        if (actionFilter !== 'all') query = query.eq('action', actionFilter)
-        const { data } = await query.order('created_at', { ascending: false }).range(page * perPage, (page + 1) * perPage - 1)
-        setLogs(data || [])
-        setLoading(false)
-    }
+    useEffect(() => {
+        let isMounted = true
+
+        async function loadLogs() {
+            setLoading(true)
+            let query = supabase.from('audit_logs').select('*, user:profiles(name)')
+            if (actionFilter !== 'all') query = query.eq('action', actionFilter)
+            
+            const { data, error } = await query
+                .order('created_at', { ascending: false })
+                .range(page * perPage, (page + 1) * perPage - 1)
+            
+            if (!isMounted) return
+
+            if (data && !error) {
+                setLogs(data)
+            }
+            setLoading(false)
+        }
+
+        loadLogs()
+        return () => { isMounted = false }
+    }, [page, actionFilter])
+
+    // Reset pagination when filter changes
+    useEffect(() => {
+        setPage(0)
+    }, [actionFilter])
 
     const actionColors: Record<string, string> = {
         login: 'bg-blue-500/20 text-blue-400', logout: 'bg-gray-500/20 text-gray-400',
@@ -52,11 +71,11 @@ export default function AuditLogPage() {
             <Card className="backdrop-blur-xl bg-card/80 border-border/50">
                 <CardHeader>
                     <div className="flex gap-3">
-                        <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setTimeout(loadLogs, 0) }}>
-                            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Jenis Aksi" /></SelectTrigger>
+                        <Select value={actionFilter} onValueChange={setActionFilter}>
+                            <SelectTrigger className="w-[180px] shrink-0"><SelectValue placeholder="Jenis Aksi" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Semua Aksi</SelectItem>
-                                {Object.entries(ACTION_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                                {Object.entries(ACTION_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v as string}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>

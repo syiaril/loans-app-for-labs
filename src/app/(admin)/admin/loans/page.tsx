@@ -19,23 +19,47 @@ export default function LoansPage() {
     const [loans, setLoans] = useState<(Loan & { user?: Profile })[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
+    const [searchInput, setSearchInput] = useState('') // Internal state for search input
     const [statusFilter, setStatusFilter] = useState('all')
     const [page, setPage] = useState(0)
     const [totalItems, setTotalItems] = useState(0)
     const perPage = 20
 
-    useEffect(() => { loadLoans() }, [page])
+    const supabase = createClient()
 
-    async function loadLoans() {
-        setLoading(true)
-        const supabase = createClient()
-        let query = supabase.from('loans').select('*, user:profiles(name, department), loan_items(id)', { count: 'exact' })
-        if (statusFilter !== 'all') query = query.eq('status', statusFilter)
-        if (search) query = query.or(`loan_code.ilike.%${search}%`)
-        const { data, count } = await query.order('created_at', { ascending: false }).range(page * perPage, (page + 1) * perPage - 1)
-        setLoans(data || [])
-        if (count !== null) setTotalItems(count)
-        setLoading(false)
+    useEffect(() => {
+        let isMounted = true
+
+        async function loadLoans() {
+            setLoading(true)
+            let query = supabase.from('loans').select('*, user:profiles(name, department), loan_items(id)', { count: 'exact' })
+            if (statusFilter !== 'all') query = query.eq('status', statusFilter)
+            if (search) query = query.or(`loan_code.ilike.%${search}%`)
+            
+            const { data, count, error } = await query
+                .order('created_at', { ascending: false })
+                .range(page * perPage, (page + 1) * perPage - 1)
+            
+            if (!isMounted) return
+
+            if (data && !error) {
+                setLoans(data)
+                if (count !== null) setTotalItems(count)
+            }
+            setLoading(false)
+        }
+
+        loadLoans()
+        return () => { isMounted = false }
+    }, [page, statusFilter, search])
+
+    // Reset page when filter/search changes
+    useEffect(() => {
+        setPage(0)
+    }, [statusFilter, search])
+
+    const handleSearch = () => {
+        setSearch(searchInput)
     }
 
     return (
@@ -48,15 +72,24 @@ export default function LoansPage() {
             <Card className="backdrop-blur-xl bg-card/80 border-border/50">
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input placeholder="Cari kode pinjam..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadLoans()} className="pl-10" />
+                        <div className="relative flex-1 flex gap-2">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input 
+                                    placeholder="Cari kode pinjam..." 
+                                    value={searchInput} 
+                                    onChange={(e) => setSearchInput(e.target.value)} 
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()} 
+                                    className="pl-10" 
+                                />
+                            </div>
+                            <Button variant="secondary" onClick={handleSearch} className="px-3 shrink-0">Cari</Button>
                         </div>
-                        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setTimeout(loadLoans, 0) }}>
-                            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-[180px] shrink-0"><SelectValue placeholder="Status" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Semua Status</SelectItem>
-                                {Object.entries(STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                                {Object.entries(STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v as string}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>

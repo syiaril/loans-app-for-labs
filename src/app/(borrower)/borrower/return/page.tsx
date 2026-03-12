@@ -26,21 +26,36 @@ export default function ReturnPage() {
     const [returnForms, setReturnForms] = useState<Record<number, { condition: string; note: string }>>({})
     const [processing, setProcessing] = useState<number | null>(null)
 
-    useEffect(() => {
-        if (user) loadLoans()
-    }, [user])
+    const [refreshSignal, setRefreshSignal] = useState(0)
 
-    async function loadLoans() {
-        const supabase = createClient()
-        const { data } = await supabase
-            .from('loans')
-            .select(`*, loan_items(*, item:items(*))`)
-            .eq('user_id', user!.id)
-            .in('status', ['borrowed', 'partial_return', 'overdue', 'approved'])
-            .order('created_at', { ascending: false })
-        setLoans((data as ActiveLoan[]) || [])
-        setLoading(false)
-    }
+    const supabase = createClient()
+
+    useEffect(() => {
+        let isMounted = true
+
+        async function loadLoans() {
+            if (!user) return
+            setLoading(true)
+            const { data, error } = await supabase
+                .from('loans')
+                .select(`*, loan_items(*, item:items(*))`)
+                .eq('user_id', user.id)
+                .in('status', ['borrowed', 'partial_return', 'overdue', 'approved'])
+                .order('created_at', { ascending: false })
+            
+            if (!isMounted) return
+
+            if (data && !error) {
+                setLoans((data as ActiveLoan[]) || [])
+            }
+            setLoading(false)
+        }
+
+        loadLoans()
+        return () => { isMounted = false }
+    }, [user, refreshSignal])
+
+    const refresh = () => setRefreshSignal(s => s + 1)
 
     async function handleScanReturn(barcode: string) {
         const supabase = createClient()
@@ -116,7 +131,7 @@ export default function ReturnPage() {
 
         toast.success(`${loanItem.item.name} berhasil dikembalikan`)
         setProcessing(null)
-        loadLoans()
+        refresh()
     }
 
     if (loading) {

@@ -22,30 +22,49 @@ export default function UsersPage() {
     const [users, setUsers] = useState<Profile[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
+    const [searchInput, setSearchInput] = useState('') // Internal state for search input
     const [roleFilter, setRoleFilter] = useState('all')
     const [approvalFilter, setApprovalFilter] = useState('all')
     const [page, setPage] = useState(0)
     const [totalItems, setTotalItems] = useState(0)
     const perPage = 20
 
-    useEffect(() => { loadUsers() }, [page])
+    const supabase = createClient()
 
-    async function loadUsers() {
-        setLoading(true)
-        const supabase = createClient()
-        let query = supabase.from('profiles').select('*', { count: 'exact' })
-        if (roleFilter !== 'all') query = query.eq('role', roleFilter)
-        if (approvalFilter === 'approved') query = query.eq('is_approved', true)
-        if (approvalFilter === 'pending') query = query.eq('is_approved', false)
-        if (search) query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,card_barcode.ilike.%${search}%,department.ilike.%${search}%`)
-        const { data, count } = await query.order('created_at', { ascending: false }).range(page * perPage, (page + 1) * perPage - 1)
-        setUsers(data || [])
-        if (count !== null) setTotalItems(count)
-        setLoading(false)
-    }
+    useEffect(() => {
+        let isMounted = true
+
+        async function loadUsers() {
+            setLoading(true)
+            let query = supabase.from('profiles').select('*', { count: 'exact' })
+            if (roleFilter !== 'all') query = query.eq('role', roleFilter)
+            if (approvalFilter === 'approved') query = query.eq('is_approved', true)
+            if (approvalFilter === 'pending') query = query.eq('is_approved', false)
+            if (search) query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,card_barcode.ilike.%${search}%,department.ilike.%${search}%`)
+            
+            const { data, count, error } = await query
+                .order('created_at', { ascending: false })
+                .range(page * perPage, (page + 1) * perPage - 1)
+            
+            if (!isMounted) return
+
+            if (!error && data) {
+                setUsers(data)
+                if (count !== null) setTotalItems(count)
+            }
+            setLoading(false)
+        }
+
+        loadUsers()
+        return () => { isMounted = false }
+    }, [page, roleFilter, approvalFilter, search])
+
+    // Reset pagination when filters change
+    useEffect(() => {
+        setPage(0)
+    }, [roleFilter, approvalFilter, search])
 
     async function approveUser(userId: string) {
-        const supabase = createClient()
         await supabase.from('profiles').update({ is_approved: true }).eq('id', userId)
         await supabase.from('audit_logs').insert({
             user_id: currentUser?.id,
@@ -54,7 +73,13 @@ export default function UsersPage() {
             description: `Menyetujui pengguna`,
         })
         toast.success('Pengguna disetujui')
-        loadUsers()
+        
+        // Refresh current page manually
+        const { data, count } = await supabase.from('profiles').select('*', { count: 'exact' })
+            .order('created_at', { ascending: false })
+            .range(page * perPage, (page + 1) * perPage - 1)
+        if (data) setUsers(data)
+        if (count !== null) setTotalItems(count)
     }
 
     async function deleteUser(userId: string) {
@@ -62,7 +87,6 @@ export default function UsersPage() {
             toast.error('Tidak bisa menghapus diri sendiri')
             return
         }
-        const supabase = createClient()
         // Check active loans
         const { count } = await supabase.from('loans').select('*', { count: 'exact', head: true })
             .eq('user_id', userId).in('status', ['borrowed', 'partial_return', 'overdue'])
@@ -78,10 +102,18 @@ export default function UsersPage() {
             description: `Menghapus pengguna`,
         })
         toast.success('Pengguna dihapus')
-        loadUsers()
+        
+        // Refresh current page manually
+        const { data: refreshed, count: c } = await supabase.from('profiles').select('*', { count: 'exact' })
+            .order('created_at', { ascending: false })
+            .range(page * perPage, (page + 1) * perPage - 1)
+        if (refreshed) setUsers(refreshed)
+        if (c !== null) setTotalItems(c)
     }
 
-    function handleSearch() { setPage(0); loadUsers() }
+    const handleSearch = () => {
+        setSearch(searchInput)
+    }
 
     return (
         <div className="space-y-6">
@@ -98,7 +130,7 @@ export default function UsersPage() {
                         </Button>
                     </Link>
                     <Link href="/admin/users/create">
-                        <Button><Plus className="w-4 h-4 mr-2" />Tambah Pengguna</Button>
+                        <Button><Plus className="w-4 h-4 mr-2" />Tambah</Button>
                     </Link>
                 </div>
             </div>
@@ -106,20 +138,29 @@ export default function UsersPage() {
             <Card className="backdrop-blur-xl bg-card/80 border-border/50">
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input placeholder="Cari nama, email, barcode..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch()} className="pl-10" />
+                        <div className="relative flex-1 flex gap-2">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input 
+                                    placeholder="Cari nama, email, barcode..." 
+                                    value={searchInput} 
+                                    onChange={(e) => setSearchInput(e.target.value)} 
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()} 
+                                    className="pl-10" 
+                                />
+                            </div>
+                            <Button variant="secondary" onClick={handleSearch} className="px-3 shrink-0">Cari</Button>
                         </div>
-                        <Select value={roleFilter} onValueChange={(v) => { setRoleFilter(v); setPage(0); setTimeout(loadUsers, 0) }}>
-                            <SelectTrigger className="w-[140px]"><SelectValue placeholder="Role" /></SelectTrigger>
+                        <Select value={roleFilter} onValueChange={setRoleFilter}>
+                            <SelectTrigger className="w-[140px] shrink-0"><SelectValue placeholder="Role" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Semua Role</SelectItem>
                                 <SelectItem value="admin">Admin</SelectItem>
                                 <SelectItem value="borrower">Peminjam</SelectItem>
                             </SelectContent>
                         </Select>
-                        <Select value={approvalFilter} onValueChange={(v) => { setApprovalFilter(v); setPage(0); setTimeout(loadUsers, 0) }}>
-                            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                        <Select value={approvalFilter} onValueChange={setApprovalFilter}>
+                            <SelectTrigger className="w-[150px] shrink-0"><SelectValue placeholder="Status" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Semua Status</SelectItem>
                                 <SelectItem value="approved">Disetujui</SelectItem>

@@ -24,49 +24,84 @@ export default function ItemsPage() {
     const [categories, setCategories] = useState<Category[]>([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
+    const [searchInput, setSearchInput] = useState('') // For immediate input tracking
     const [catFilter, setCatFilter] = useState('all')
     const [statusFilter, setStatusFilter] = useState('all')
     const [page, setPage] = useState(0)
     const [totalItems, setTotalItems] = useState(0)
     const perPage = 20
 
-    useEffect(() => { loadData() }, [page])
+    const supabase = createClient()
 
-    async function loadData() {
-        setLoading(true)
-        const supabase = createClient()
-        
-        let query = supabase.from('items').select('*, category:categories(name)', { count: 'exact' })
-        if (catFilter !== 'all') query = query.eq('category_id', catFilter)
-        if (statusFilter !== 'all') query = query.eq('status', statusFilter)
-        if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,barcode.ilike.%${search}%`)
-        
-        // Execute both queries concurrently
-        const [catsRes, itemsRes] = await Promise.all([
-            supabase.from('categories').select('*').eq('is_active', true),
-            query.order('created_at', { ascending: false }).range(page * perPage, (page + 1) * perPage - 1)
-        ])
+    // 1. Fetch categories ONCE on mount
+    useEffect(() => {
+        async function fetchCategories() {
+            const { data } = await supabase.from('categories').select('*').eq('is_active', true)
+            if (data) setCategories(data)
+        }
+        fetchCategories()
+    }, [])
 
-        setCategories(catsRes.data || [])
-        setItems(itemsRes.data || [])
-        if (itemsRes.count !== null) setTotalItems(itemsRes.count)
-        setLoading(false)
-    }
+    // 2. Fetch items whenever filters, search, or page changes
+    useEffect(() => {
+        let isMounted = true
+
+        async function loadItems() {
+            setLoading(true)
+            
+            let query = supabase.from('items').select('*, category:categories(name)', { count: 'exact' })
+            
+            if (catFilter !== 'all') query = query.eq('category_id', catFilter)
+            if (statusFilter !== 'all') query = query.eq('status', statusFilter)
+            if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,barcode.ilike.%${search}%`)
+            
+            const { data, count, error } = await query
+                .order('created_at', { ascending: false })
+                .range(page * perPage, (page + 1) * perPage - 1)
+
+            if (!isMounted) return
+
+            if (!error && data) {
+                setItems(data)
+                if (count !== null) setTotalItems(count)
+            }
+            setLoading(false)
+        }
+
+        loadItems()
+
+        return () => { isMounted = false }
+    }, [page, catFilter, statusFilter, search])
+
+    // Reset pagination to 0 when filters change
+    useEffect(() => {
+        setPage(0)
+    }, [catFilter, statusFilter, search])
 
     async function deleteItem(item: Item) {
         if (item.status === 'borrowed') {
             toast.error('Tidak bisa menghapus barang yang sedang dipinjam')
             return
         }
-        const supabase = createClient()
         await supabase.from('items').delete().eq('id', item.id)
         if (item.image) {
             await supabase.storage.from('items').remove([item.image])
         }
         await supabase.from('audit_logs').insert({ user_id: currentUser?.id, action: 'delete', model_type: 'item', model_id: item.id, description: `Menghapus barang: ${item.name}` })
         toast.success('Barang dihapus')
-        loadData()
+        
+        // Refetch current page
+        const { data, count } = await supabase
+            .from('items')
+            .select('*, category:categories(name)', { count: 'exact' })
+            .order('created_at', { ascending: false })
+            .range(page * perPage, (page + 1) * perPage - 1)
+            
+        if (data) setItems(data)
+        if (count !== null) setTotalItems(count)
     }
+
+    const executeSearch = () => setSearch(searchInput)
 
     return (
         <div className="space-y-6">
@@ -77,29 +112,38 @@ export default function ItemsPage() {
                 </div>
                 <div className="flex gap-2">
                     <Link href="/admin/items/barcodes"><Button variant="outline"><Printer className="w-4 h-4 mr-2" />Cetak Barcode</Button></Link>
-                    <Link href="/admin/items/create"><Button><Plus className="w-4 h-4 mr-2" />Tambah Barang</Button></Link>
+                    <Link href="/admin/items/create"><Button><Plus className="w-4 h-4 mr-2" />Tambah</Button></Link>
                 </div>
             </div>
 
             <Card className="backdrop-blur-xl bg-card/80 border-border/50">
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input placeholder="Cari nama, kode, barcode..." value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadData()} className="pl-10" />
+                        <div className="relative flex-1 flex gap-2">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input 
+                                    placeholder="Cari nama, kode, barcode..." 
+                                    value={searchInput} 
+                                    onChange={(e) => setSearchInput(e.target.value)} 
+                                    onKeyDown={(e) => e.key === 'Enter' && executeSearch()} 
+                                    className="pl-10" 
+                                />
+                            </div>
+                            <Button variant="secondary" onClick={executeSearch} className="px-3 shrink-0">Cari</Button>
                         </div>
-                        <Select value={catFilter} onValueChange={(v) => { setCatFilter(v); setTimeout(loadData, 0) }}>
-                            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Kategori" /></SelectTrigger>
+                        <Select value={catFilter} onValueChange={setCatFilter}>
+                            <SelectTrigger className="w-[160px] shrink-0"><SelectValue placeholder="Kategori" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Semua Kategori</SelectItem>
                                 {categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
-                        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setTimeout(loadData, 0) }}>
-                            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-[150px] shrink-0"><SelectValue placeholder="Status" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Semua Status</SelectItem>
-                                {Object.entries(ITEM_STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+                                {Object.entries(ITEM_STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v as string}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>

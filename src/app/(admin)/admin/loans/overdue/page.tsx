@@ -17,33 +17,47 @@ export default function OverdueLoansPage() {
     const { profile: currentUser } = useAuth()
     const [loans, setLoans] = useState<(Loan & { user?: Profile })[]>([])
     const [loading, setLoading] = useState(true)
+    const [refreshSignal, setRefreshSignal] = useState(0)
 
-    useEffect(() => { loadOverdue() }, [])
+    const supabase = createClient()
 
-    async function loadOverdue() {
-        const supabase = createClient()
-        // First, mark overdue loans
-        const today = new Date().toISOString().split('T')[0]
-        await supabase.from('loans').update({ status: 'overdue' })
-            .in('status', ['borrowed', 'partial_return'])
-            .lt('due_date', today)
+    useEffect(() => {
+        let isMounted = true
 
-        const { data } = await supabase.from('loans')
-            .select('*, user:profiles(name, department), loan_items(id)')
-            .eq('status', 'overdue')
-            .order('due_date', { ascending: true })
-        setLoans(data || [])
-        setLoading(false)
-    }
+        async function initAndLoad() {
+            setLoading(true)
+            // First, mark overdue loans
+            const today = new Date().toISOString().split('T')[0]
+            await supabase.from('loans').update({ status: 'overdue' })
+                .in('status', ['borrowed', 'partial_return'])
+                .lt('due_date', today)
+
+            const { data, error } = await supabase.from('loans')
+                .select('*, user:profiles(name, department), loan_items(id)')
+                .eq('status', 'overdue')
+                .order('due_date', { ascending: true })
+            
+            if (!isMounted) return
+
+            if (data && !error) {
+                setLoans(data)
+            }
+            setLoading(false)
+        }
+
+        initAndLoad()
+        return () => { isMounted = false }
+    }, [refreshSignal])
+
+    const refresh = () => setRefreshSignal(s => s + 1)
 
     async function markAllOverdue() {
-        const supabase = createClient()
         const today = new Date().toISOString().split('T')[0]
         const { count } = await supabase.from('loans').update({ status: 'overdue' })
             .in('status', ['borrowed', 'partial_return']).lt('due_date', today)
         await supabase.from('audit_logs').insert({ user_id: currentUser?.id, action: 'update', model_type: 'loan', description: `Menandai ${count || 0} peminjaman terlambat` })
         toast.success(`${count || 0} peminjaman ditandai terlambat`)
-        loadOverdue()
+        refresh()
     }
 
     return (

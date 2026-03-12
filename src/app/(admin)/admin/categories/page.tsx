@@ -25,22 +25,38 @@ export default function CategoriesPage() {
     const [editing, setEditing] = useState<Category | null>(null)
     const [saving, setSaving] = useState(false)
     const [form, setForm] = useState({ name: '', description: '', is_active: true })
+    const [refreshSignal, setRefreshSignal] = useState(0)
 
-    useEffect(() => { loadCategories() }, [])
+    const supabase = createClient()
 
-    async function loadCategories() {
-        setLoading(true)
-        const supabase = createClient()
-        const { data } = await supabase.from('categories').select('*').order('name')
-        if (data) {
-            const withCounts = await Promise.all(data.map(async (cat) => {
-                const { count } = await supabase.from('items').select('*', { count: 'exact', head: true }).eq('category_id', cat.id)
-                return { ...cat, item_count: count ?? 0 }
-            }))
-            setCategories(withCounts)
+    useEffect(() => {
+        let isMounted = true
+
+        async function loadCategories() {
+            setLoading(true)
+            // Single query to get categories and their item counts
+            const { data, error } = await supabase
+                .from('categories')
+                .select('*, items:items(count)')
+                .order('name')
+            
+            if (!isMounted) return
+
+            if (data && !error) {
+                const formatted = data.map(cat => ({
+                    ...cat,
+                    item_count: (cat.items as any)?.[0]?.count ?? 0
+                }))
+                setCategories(formatted)
+            }
+            setLoading(false)
         }
-        setLoading(false)
-    }
+
+        loadCategories()
+        return () => { isMounted = false }
+    }, [refreshSignal])
+
+    const refresh = () => setRefreshSignal(s => s + 1)
 
     function openCreate() {
         setEditing(null)
@@ -56,7 +72,6 @@ export default function CategoriesPage() {
 
     async function handleSave() {
         setSaving(true)
-        const supabase = createClient()
 
         if (editing) {
             const { error } = await supabase.from('categories').update(form).eq('id', editing.id)
@@ -72,7 +87,7 @@ export default function CategoriesPage() {
 
         setDialogOpen(false)
         setSaving(false)
-        loadCategories()
+        refresh()
     }
 
     async function handleDelete(cat: Category & { item_count?: number }) {
@@ -80,11 +95,10 @@ export default function CategoriesPage() {
             toast.error('Tidak bisa menghapus kategori yang masih memiliki barang')
             return
         }
-        const supabase = createClient()
         await supabase.from('categories').delete().eq('id', cat.id)
         await supabase.from('audit_logs').insert({ user_id: currentUser?.id, action: 'delete', model_type: 'category', model_id: cat.id, description: `Menghapus kategori: ${cat.name}` })
         toast.success('Kategori dihapus')
-        loadCategories()
+        refresh()
     }
 
     return (
@@ -96,10 +110,10 @@ export default function CategoriesPage() {
                 </div>
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <DialogTrigger asChild>
-                        <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Tambah Kategori</Button>
+                        <Button onClick={openCreate}><Plus className="w-4 h-4 mr-2" />Tambah</Button>
                     </DialogTrigger>
                     <DialogContent>
-                        <DialogHeader><DialogTitle>{editing ? 'Edit Kategori' : 'Tambah Kategori'}</DialogTitle></DialogHeader>
+                        <DialogHeader><DialogTitle>{editing ? 'Edit' : 'Tambah'}</DialogTitle></DialogHeader>
                         <div className="space-y-4 py-4">
                             <div className="space-y-2"><Label>Nama *</Label><Input value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} /></div>
                             <div className="space-y-2"><Label>Deskripsi</Label><Textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} /></div>

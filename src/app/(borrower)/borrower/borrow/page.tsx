@@ -24,20 +24,28 @@ export default function BorrowPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [showCart, setShowCart] = useState(false)
 
-    useEffect(() => {
-        loadData()
-    }, [])
+    const supabase = createClient()
 
-    async function loadData() {
-        const supabase = createClient()
-        const [{ data: itemsData }, { data: catsData }] = await Promise.all([
-            supabase.from('items').select('*, category:categories(*)').eq('is_active', true).order('name'),
-            supabase.from('categories').select('*').eq('is_active', true).order('name'),
-        ])
-        setItems(itemsData || [])
-        setCategories(catsData || [])
-        setLoading(false)
-    }
+    useEffect(() => {
+        let isMounted = true
+
+        async function loadData() {
+            setLoading(true)
+            const [{ data: itemsData }, { data: catsData }] = await Promise.all([
+                supabase.from('items').select('*, category:categories(*)').eq('is_active', true).order('name'),
+                supabase.from('categories').select('*').eq('is_active', true).order('name'),
+            ])
+            
+            if (!isMounted) return
+
+            setItems(itemsData || [])
+            setCategories(catsData || [])
+            setLoading(false)
+        }
+
+        loadData()
+        return () => { isMounted = false }
+    }, [])
 
     async function handleScan(barcode: string) {
         const res = await fetch(`/api/scan?barcode=${encodeURIComponent(barcode)}`)
