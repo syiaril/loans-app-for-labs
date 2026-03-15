@@ -23,9 +23,14 @@ export default function LoansPage() {
     const [statusFilter, setStatusFilter] = useState('all')
     const [page, setPage] = useState(0)
     const [totalItems, setTotalItems] = useState(0)
+    const [mounted, setMounted] = useState(false)
     const perPage = 20
 
     const supabase = createClient()
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
 
     useEffect(() => {
         let isMounted = true
@@ -70,28 +75,40 @@ export default function LoansPage() {
             </div>
 
             <Card className="backdrop-blur-xl bg-card/80 border-border/50">
-                <CardHeader>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="relative flex-1 flex gap-2">
-                            <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input 
-                                    placeholder="Cari kode pinjam..." 
-                                    value={searchInput} 
-                                    onChange={(e) => setSearchInput(e.target.value)} 
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()} 
-                                    className="pl-10" 
-                                />
+                <CardHeader className="pb-6">
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="relative flex-1 flex gap-2">
+                                <div className="relative flex-1">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                                    <Input 
+                                        placeholder="Cari kode pinjam..." 
+                                        value={searchInput} 
+                                        onChange={(e) => setSearchInput(e.target.value)} 
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()} 
+                                        className="h-10 pl-10 rounded-lg text-sm bg-card/50 border-border/60" 
+                                    />
+                                </div>
+                                <Button 
+                                    variant="secondary" 
+                                    onClick={handleSearch} 
+                                    className="h-10 px-4 rounded-lg font-bold active:scale-95 transition-all shrink-0"
+                                >
+                                    CARI
+                                </Button>
                             </div>
-                            <Button variant="secondary" onClick={handleSearch} className="px-3 shrink-0">Cari</Button>
                         </div>
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-[180px] shrink-0"><SelectValue placeholder="Status" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Semua Status</SelectItem>
-                                {Object.entries(STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v as string}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                        {mounted && (
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                <SelectTrigger className="h-9 rounded-md flex-1 sm:max-w-[200px]"><SelectValue placeholder="Status Peminjaman" /></SelectTrigger>
+                                <SelectContent className="rounded-lg">
+                                    <SelectItem value="all">Semua Status</SelectItem>
+                                    {Object.entries(STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v as string}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -130,21 +147,21 @@ export default function LoansPage() {
                                     {loans.map((loan) => (
                                         <TableRow key={loan.id}>
                                             <TableCell>
-                                                <Link href={`/admin/loans/${loan.id}`} className="font-mono text-sm text-primary hover:underline">
+                                                <Link href={`/admin/loans/${loan.id}`} className="font-mono font-black text-[11px] text-primary hover:underline bg-primary/5 px-2 py-1 rounded-md border border-primary/10">
                                                     {loan.loan_code}
                                                 </Link>
                                             </TableCell>
                                             <TableCell>
-                                                <div>
-                                                    <p className="text-sm font-medium">{(loan.user as Profile)?.name}</p>
-                                                    <p className="text-xs text-muted-foreground">{(loan.user as Profile)?.department}</p>
+                                                <div className="py-0.5">
+                                                    <p className="text-xs font-bold tracking-tight">{(loan.user as Profile)?.name}</p>
+                                                    <p className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">{(loan.user as Profile)?.department}</p>
                                                 </div>
                                             </TableCell>
-                                            <TableCell><Badge variant="secondary">{(loan as Loan & { loan_items?: { id: number }[] }).loan_items?.length || 0}</Badge></TableCell>
-                                            <TableCell><Badge variant="outline" className={`text-xs ${STATUS_COLORS[loan.status]}`}>{STATUS_LABELS[loan.status]}</Badge></TableCell>
-                                            <TableCell className="text-sm">{loan.borrowed_at ? formatDate(loan.borrowed_at) : '-'}</TableCell>
-                                            <TableCell className="text-sm">{loan.due_date ? formatDate(loan.due_date) : '-'}</TableCell>
-                                            <TableCell className="text-sm">{loan.returned_at ? formatDate(loan.returned_at) : '-'}</TableCell>
+                                            <TableCell><Badge variant="secondary" className="font-bold text-[10px]">{(loan as Loan & { loan_items?: { id: number }[] }).loan_items?.length || 0} ITEM</Badge></TableCell>
+                                            <TableCell><Badge variant="outline" className={`text-[9px] font-black uppercase tracking-widest ${STATUS_COLORS[loan.status]}`}>{STATUS_LABELS[loan.status]}</Badge></TableCell>
+                                            <TableCell className="text-xs font-medium">{loan.borrowed_at ? formatDate(loan.borrowed_at) : '-'}</TableCell>
+                                            <TableCell className="text-xs font-medium">{loan.due_date ? formatDate(loan.due_date) : '-'}</TableCell>
+                                            <TableCell className="text-xs font-medium">{loan.returned_at ? formatDate(loan.returned_at) : '-'}</TableCell>
                                         </TableRow>
                                     ))}
                                     {loans.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Tidak ada peminjaman ditemukan</TableCell></TableRow>}

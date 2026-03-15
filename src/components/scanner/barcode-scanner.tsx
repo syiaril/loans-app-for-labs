@@ -115,19 +115,14 @@ export default function BarcodeScanner({
                     value={manualInput}
                     onChange={(e) => handleInputChange(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="pl-11 h-14 text-lg focus-visible:ring-primary/50 bg-background/50 backdrop-blur-sm border-primary/20"
+                    className="pl-11 h-14 text-lg focus-visible:ring-primary/40 bg-background/60 backdrop-blur-sm border-border/60 focus-visible:border-primary/50 transition-all duration-300 shadow-sm focus:shadow-md"
                     autoComplete="off"
                 />
-                {autoFocus && (
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none">
-                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                        <span className="text-xs font-semibold text-emerald-500 uppercase tracking-widest hidden sm:inline">Scanner Aktif</span>
-                    </div>
-                )}
+
             </div>
 
             <p className="text-xs text-muted-foreground text-center">
-                Silakan scan barcode barang pakai alat scanner fisik Anda atau ketik nama barang untuk cari manual 📷
+                Silakan scan barcode barang pakai alat scanner fisik Anda
             </p>
         </div>
     )

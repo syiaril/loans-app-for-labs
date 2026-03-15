@@ -201,13 +201,13 @@ export default function ReturnPage() {
                                                 ) : null}
                                             </div>
 
-                                            {!li.returned_at && (
-                                                <div className="space-y-2 mt-3">
+                                             {!li.returned_at && (
+                                                <div className="space-y-4 mt-5 pt-4 border-t border-border/40">
                                                     {returnForms[li.id] ? (
-                                                        <>
-                                                            <div className="grid grid-cols-2 gap-2">
-                                                                <div className="space-y-1">
-                                                                    <Label className="text-xs">Kondisi Setelah</Label>
+                                                        <div className="space-y-5">
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                                <div className="space-y-2">
+                                                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Kondisi Barang</Label>
                                                                     <Select
                                                                         value={returnForms[li.id].condition}
                                                                         onValueChange={(v) => setReturnForms(prev => ({
@@ -215,21 +215,21 @@ export default function ReturnPage() {
                                                                             [li.id]: { ...prev[li.id], condition: v }
                                                                         }))}
                                                                     >
-                                                                        <SelectTrigger className="h-8">
+                                                                        <SelectTrigger className="h-14 rounded-xl bg-background/50 border-border/60 text-base">
                                                                             <SelectValue />
                                                                         </SelectTrigger>
-                                                                        <SelectContent>
+                                                                        <SelectContent className="rounded-xl">
                                                                             {Object.entries(CONDITION_LABELS).map(([k, v]) => (
-                                                                                <SelectItem key={k} value={k}>{v}</SelectItem>
+                                                                                <SelectItem key={k} value={k} className="h-12">{v}</SelectItem>
                                                                             ))}
                                                                         </SelectContent>
                                                                     </Select>
                                                                 </div>
-                                                                <div className="space-y-1">
-                                                                    <Label className="text-xs">Catatan</Label>
+                                                                <div className="space-y-2">
+                                                                    <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Catatan Tambahan</Label>
                                                                     <Textarea
-                                                                        placeholder="Opsional..."
-                                                                        className="h-8 min-h-[32px] text-xs"
+                                                                        placeholder="Tambahkan catatan jika ada kerusakan..."
+                                                                        className="h-14 min-h-[56px] rounded-xl bg-background/50 border-border/60 text-base resize-none"
                                                                         value={returnForms[li.id].note}
                                                                         onChange={(e) => setReturnForms(prev => ({
                                                                             ...prev,
@@ -239,31 +239,29 @@ export default function ReturnPage() {
                                                                 </div>
                                                             </div>
                                                             <Button
-                                                                size="sm"
-                                                                className="w-full"
+                                                                className="w-full h-14 rounded-xl text-base font-bold shadow-lg shadow-emerald-500/10 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] transition-all"
                                                                 onClick={() => handleReturnItem(li, loan.id)}
                                                                 disabled={processing === li.id}
                                                             >
                                                                 {processing === li.id ? (
-                                                                    <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                                                                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
                                                                 ) : (
-                                                                    <Undo2 className="w-3 h-3 mr-1" />
+                                                                    <Undo2 className="w-5 h-5 mr-3" />
                                                                 )}
-                                                                Kembalikan
+                                                                Konfirmasi Pengembalian
                                                             </Button>
-                                                        </>
+                                                        </div>
                                                     ) : (
                                                         <Button
                                                             variant="outline"
-                                                            size="sm"
-                                                            className="w-full"
+                                                            className="w-full h-14 rounded-xl border-dashed bg-muted/20 hover:bg-muted/40 transition-all font-semibold active:scale-[0.98]"
                                                             onClick={() => setReturnForms(prev => ({
                                                                 ...prev,
                                                                 [li.id]: { condition: 'good', note: '' }
                                                             }))}
                                                         >
-                                                            <Undo2 className="w-3 h-3 mr-1" />
-                                                            Kembalikan Item Ini
+                                                            <Undo2 className="w-5 h-5 mr-3 opacity-60" />
+                                                            Pilih untuk Kembalikan
                                                         </Button>
                                                     )}
                                                 </div>

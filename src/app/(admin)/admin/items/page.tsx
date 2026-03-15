@@ -29,9 +29,14 @@ export default function ItemsPage() {
     const [statusFilter, setStatusFilter] = useState('all')
     const [page, setPage] = useState(0)
     const [totalItems, setTotalItems] = useState(0)
+    const [mounted, setMounted] = useState(false)
     const perPage = 20
 
     const supabase = createClient()
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
 
     // 1. Fetch categories ONCE on mount
     useEffect(() => {
@@ -117,35 +122,47 @@ export default function ItemsPage() {
             </div>
 
             <Card className="backdrop-blur-xl bg-card/80 border-border/50">
-                <CardHeader>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="relative flex-1 flex gap-2">
-                            <div className="relative flex-1">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input 
-                                    placeholder="Cari nama, kode, barcode..." 
-                                    value={searchInput} 
-                                    onChange={(e) => setSearchInput(e.target.value)} 
-                                    onKeyDown={(e) => e.key === 'Enter' && executeSearch()} 
-                                    className="pl-10" 
-                                />
+                <CardHeader className="pb-6">
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="relative flex-1 flex gap-2">
+                                <div className="relative flex-1">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                                    <Input 
+                                        placeholder="Cari nama, kode, barcode..." 
+                                        value={searchInput} 
+                                        onChange={(e) => setSearchInput(e.target.value)} 
+                                        onKeyDown={(e) => e.key === 'Enter' && executeSearch()} 
+                                        className="h-10 pl-10 rounded-lg text-sm bg-card/50 border-border/60" 
+                                    />
+                                </div>
+                                <Button 
+                                    variant="secondary" 
+                                    onClick={executeSearch} 
+                                    className="h-10 px-4 rounded-lg font-bold active:scale-95 transition-all shrink-0"
+                                >
+                                    CARI
+                                </Button>
                             </div>
-                            <Button variant="secondary" onClick={executeSearch} className="px-3 shrink-0">Cari</Button>
                         </div>
-                        <Select value={catFilter} onValueChange={setCatFilter}>
-                            <SelectTrigger className="w-[160px] shrink-0"><SelectValue placeholder="Kategori" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Semua Kategori</SelectItem>
-                                {categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-[150px] shrink-0"><SelectValue placeholder="Status" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Semua Status</SelectItem>
-                                {Object.entries(ITEM_STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v as string}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                        {mounted && (
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <Select value={catFilter} onValueChange={setCatFilter}>
+                                <SelectTrigger className="h-9 rounded-md flex-1 sm:max-w-[180px]"><SelectValue placeholder="Kategori" /></SelectTrigger>
+                                <SelectContent className="rounded-lg">
+                                    <SelectItem value="all">Semua Kategori</SelectItem>
+                                    {categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                <SelectTrigger className="h-9 rounded-md flex-1 sm:max-w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                                <SelectContent className="rounded-lg">
+                                    <SelectItem value="all">Semua Status</SelectItem>
+                                    {Object.entries(ITEM_STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v as string}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -185,7 +202,7 @@ export default function ItemsPage() {
                                         <TableRow key={item.id}>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
-                                                    <div className="w-8 h-8 rounded bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+                                                    <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center shrink-0 overflow-hidden border border-border/40">
                                                         {item.image ? (
                                                             <img
                                                                 src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/items/${item.image}`}
@@ -193,30 +210,30 @@ export default function ItemsPage() {
                                                                 className="w-full h-full object-cover"
                                                             />
                                                         ) : (
-                                                            <Package className="w-4 h-4 text-muted-foreground" />
+                                                            <Package className="w-4 h-4 text-muted-foreground/50" />
                                                         )}
                                                     </div>
-                                                    <span className="font-medium text-sm">{item.name}</span>
+                                                    <span className="font-bold text-xs tracking-tight">{item.name}</span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell><code className="text-xs">{item.code}</code></TableCell>
-                                            <TableCell><code className="text-xs">{item.barcode}</code></TableCell>
-                                            <TableCell className="text-sm">{item.category?.name}</TableCell>
+                                            <TableCell><code className="text-xs font-mono bg-muted/60 px-2 py-0.5 rounded">{item.code}</code></TableCell>
+                                            <TableCell><code className="text-xs font-mono bg-muted/60 px-2 py-0.5 rounded">{item.barcode}</code></TableCell>
+                                            <TableCell className="text-sm font-medium">{item.category?.name}</TableCell>
                                             <TableCell>
-                                                <Badge variant="outline" className={`text-xs ${ITEM_STATUS_COLORS[item.status]}`}>
+                                                <Badge variant="outline" className={`text-[10px] font-black uppercase tracking-wider ${ITEM_STATUS_COLORS[item.status]}`}>
                                                     {ITEM_STATUS_LABELS[item.status]}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-sm">{CONDITION_LABELS[item.condition] || item.condition}</TableCell>
+                                            <TableCell className="text-sm font-medium">{CONDITION_LABELS[item.condition] || item.condition}</TableCell>
                                             <TableCell className="text-right">
                                                 <div className="flex items-center justify-end gap-1">
-                                                    <Link href={`/admin/items/${item.id}`}><Button variant="ghost" size="icon"><Package className="w-4 h-4" /></Button></Link>
-                                                    <Link href={`/admin/items/${item.id}/edit`}><Button variant="ghost" size="icon"><Pencil className="w-4 h-4" /></Button></Link>
+                                                    <Link href={`/admin/items/${item.id}`}><Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg active:scale-90 transition-all"><Package className="w-4 h-4" /></Button></Link>
+                                                    <Link href={`/admin/items/${item.id}/edit`}><Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg active:scale-90 transition-all"><Pencil className="w-4 h-4" /></Button></Link>
                                                     <AlertDialog>
-                                                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="w-4 h-4 text-destructive" /></Button></AlertDialogTrigger>
-                                                        <AlertDialogContent>
+                                                        <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg text-destructive hover:bg-destructive/10 active:scale-90 transition-all"><Trash2 className="w-4 h-4" /></Button></AlertDialogTrigger>
+                                                        <AlertDialogContent className="rounded-2xl">
                                                             <AlertDialogHeader><AlertDialogTitle>Hapus Barang?</AlertDialogTitle><AlertDialogDescription>Tindakan ini tidak dapat dibatalkan.</AlertDialogDescription></AlertDialogHeader>
-                                                            <AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction onClick={() => deleteItem(item)}>Hapus</AlertDialogAction></AlertDialogFooter>
+                                                            <AlertDialogFooter className="gap-2"><AlertDialogCancel className="h-10 rounded-lg">Batal</AlertDialogCancel><AlertDialogAction onClick={() => deleteItem(item)} className="h-10 rounded-lg bg-destructive hover:bg-destructive/90">Hapus</AlertDialogAction></AlertDialogFooter>
                                                         </AlertDialogContent>
                                                     </AlertDialog>
                                                 </div>

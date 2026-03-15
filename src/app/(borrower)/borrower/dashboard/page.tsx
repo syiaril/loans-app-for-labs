@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { STATUS_LABELS, STATUS_COLORS, formatDate, formatDateTime } from '@/lib/utils'
 import { Package, Clock, AlertTriangle, CheckCircle } from 'lucide-react'
+import CountdownTimer from '@/components/loans/countdown-timer'
 
 export default async function BorrowerDashboard() {
     const supabase = await createClient()
@@ -111,9 +112,9 @@ export default async function BorrowerDashboard() {
                                                 {STATUS_LABELS[loan.status]}
                                             </Badge>
                                         </div>
-                                        <span className="text-xs text-muted-foreground">
-                                            {loan.due_date && `Jatuh tempo: ${formatDate(loan.due_date)}`}
-                                        </span>
+                                        {loan.due_date && (
+                                            <CountdownTimer dueDate={loan.due_date} status={loan.status} />
+                                        )}
                                     </div>
                                     <div className="flex flex-wrap gap-1">
                                         {loan.loan_items?.map((li: { id: number; item?: { name: string; code: string }; returned_at: string | null }) => (

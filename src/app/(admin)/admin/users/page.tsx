@@ -27,9 +27,14 @@ export default function UsersPage() {
     const [approvalFilter, setApprovalFilter] = useState('all')
     const [page, setPage] = useState(0)
     const [totalItems, setTotalItems] = useState(0)
+    const [mounted, setMounted] = useState(false)
     const perPage = 20
 
     const supabase = createClient()
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
 
     useEffect(() => {
         let isMounted = true
@@ -151,22 +156,26 @@ export default function UsersPage() {
                             </div>
                             <Button variant="secondary" onClick={handleSearch} className="px-3 shrink-0">Cari</Button>
                         </div>
-                        <Select value={roleFilter} onValueChange={setRoleFilter}>
-                            <SelectTrigger className="w-[140px] shrink-0"><SelectValue placeholder="Role" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Semua Role</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
-                                <SelectItem value="borrower">Peminjam</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Select value={approvalFilter} onValueChange={setApprovalFilter}>
-                            <SelectTrigger className="w-[150px] shrink-0"><SelectValue placeholder="Status" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Semua Status</SelectItem>
-                                <SelectItem value="approved">Disetujui</SelectItem>
-                                <SelectItem value="pending">Menunggu</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        {mounted && (
+                          <>
+                            <Select value={roleFilter} onValueChange={setRoleFilter}>
+                                <SelectTrigger className="w-[140px] shrink-0"><SelectValue placeholder="Role" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Semua Role</SelectItem>
+                                    <SelectItem value="admin">Admin</SelectItem>
+                                    <SelectItem value="borrower">Peminjam</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Select value={approvalFilter} onValueChange={setApprovalFilter}>
+                                <SelectTrigger className="w-[150px] shrink-0"><SelectValue placeholder="Status" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Semua Status</SelectItem>
+                                    <SelectItem value="approved">Disetujui</SelectItem>
+                                    <SelectItem value="pending">Menunggu</SelectItem>
+                                </SelectContent>
+                            </Select>
+                          </>
+                        )}
                     </div>
                 </CardHeader>
                 <CardContent>

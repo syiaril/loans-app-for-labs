@@ -104,12 +104,12 @@ export default function AdminSidebar() {
                 ) : (
                     /* Expanded: logo + title + toggle */
                     <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl overflow-hidden bg-primary/10 border border-primary/20 shrink-0 flex items-center justify-center p-1">
+                        <div className="w-9 h-9 rounded-xl overflow-hidden bg-primary/10 border border-primary/20 shrink-0 flex items-center justify-center p-1.5 shadow-sm">
                             <img src="https://skensa-rpl.com/images/logo_rpl.png" alt="Logo Pojok Lab" className="w-full h-full object-contain" />
                         </div>
                         <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-sm">Pojok Lab</p>
-                            <p className="text-xs text-muted-foreground">Admin Panel</p>
+                            <p className="font-bold text-sm tracking-tight text-primary">Pojok Lab</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Admin Panel</p>
                         </div>
                         <Button
                             variant="ghost"
@@ -141,10 +141,9 @@ export default function AdminSidebar() {
                                         <Button
                                             key={item.href}
                                             variant={isActive ? 'secondary' : 'ghost'}
-                                            size="sm"
                                             className={cn(
-                                                'w-full justify-start gap-3',
-                                                collapsed && 'justify-center px-2'
+                                                'w-full h-10 justify-start gap-3 rounded-lg px-3 font-medium transition-all active:scale-[0.98]',
+                                                collapsed ? 'justify-center px-0' : ''
                                             )}
                                             onClick={() => {
                                                 router.push(item.href)
@@ -152,7 +151,7 @@ export default function AdminSidebar() {
                                             }}
                                             title={collapsed ? item.label : undefined}
                                         >
-                                            <item.icon className="w-4 h-4 shrink-0" />
+                                            <item.icon className={cn("w-5 h-5 shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
                                             {!collapsed && <span>{item.label}</span>}
                                         </Button>
                                     )
@@ -164,36 +163,36 @@ export default function AdminSidebar() {
             </ScrollArea>
 
             {/* Footer */}
-            <div className="p-3 border-t border-border/50 space-y-2">
-                <div className="flex items-center gap-2">
+            <div className="p-4 border-t border-border/40 bg-muted/20 space-y-4">
+                <div className="flex items-center justify-between">
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="shrink-0"
+                        className="w-9 h-9 rounded-lg active:scale-90 transition-all"
                         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                         title={theme === 'dark' ? 'Mode Terang' : 'Mode Gelap'}
                     >
-                        {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                        {theme === 'dark' ? <Sun className="w-4 h-4 text-yellow-500" /> : <Moon className="w-4 h-4 text-slate-700" />}
                     </Button>
-                </div>
-                {!collapsed && (
-                    <div className="flex items-center gap-2 px-2">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold">
-                            {profile?.name?.charAt(0)?.toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{profile?.name}</p>
-                            <p className="text-xs text-muted-foreground">Admin</p>
-                        </div>
-                        <Button variant="ghost" size="icon" onClick={handleLogout} title="Logout">
+                    {collapsed && (
+                        <Button variant="ghost" size="icon" className="w-9 h-9 rounded-lg text-destructive hover:bg-destructive/10 active:scale-90 transition-all" onClick={handleLogout} title="Logout">
                             <LogOut className="w-4 h-4" />
                         </Button>
+                    )}
+                </div>
+                {!collapsed && (
+                    <div className="flex items-center gap-2 p-1.5 bg-background border border-border/40 rounded-xl shadow-sm">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-xs font-black text-primary border border-primary/20 shrink-0">
+                            {profile?.name?.charAt(0)?.toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0 pr-1">
+                            <p className="text-xs font-bold truncate">{profile?.name}</p>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Admin Account</p>
+                        </div>
+                        <Button variant="ghost" size="icon" className="w-8 h-8 rounded-lg text-destructive hover:bg-destructive/10 active:scale-90 transition-all shrink-0" onClick={handleLogout} title="Logout">
+                            <LogOut className="w-3.5 h-3.5" />
+                        </Button>
                     </div>
-                )}
-                {collapsed && (
-                    <Button variant="ghost" size="icon" className="w-full" onClick={handleLogout} title="Logout">
-                        <LogOut className="w-4 h-4" />
-                    </Button>
                 )}
             </div>
         </div>
@@ -205,7 +204,7 @@ export default function AdminSidebar() {
             <Button
                 variant="ghost"
                 size="icon"
-                className="fixed top-4 left-4 z-50 lg:hidden"
+                className="fixed top-4 left-4 z-50 lg:hidden w-11 h-11 rounded-xl bg-card border border-border/50 shadow-lg active:scale-90 transition-all"
                 onClick={() => setMobileOpen(!mobileOpen)}
             >
                 <Menu className="w-5 h-5" />
