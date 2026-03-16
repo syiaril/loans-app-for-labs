@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -10,54 +10,61 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { STATUS_LABELS, STATUS_COLORS, formatDateTime } from '@/lib/utils'
 import { Calendar, Download, Loader2, Package, Undo2 } from 'lucide-react'
 import type { Loan, Profile } from '@/lib/types/database'
+import useSWR from 'swr'
+import { useAuth } from '@/hooks/use-auth'
+import { CardSkeleton } from '@/components/skeletons'
 
 export default function DailyReportPage() {
+    const { user } = useAuth()
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
-    const [loans, setLoans] = useState<(Loan & { user?: Profile; loan_items?: { id: number }[] })[]>([])
-    const [returns, setReturns] = useState<{ id: number; item_name: string; loan_code: string; returned_at: string; condition_after: string }[]>([])
-    const [loading, setLoading] = useState(true)
-    const [stats, setStats] = useState({ loans: 0, returns: 0, itemsBorrowed: 0, itemsReturned: 0 })
+    const supabase = createClient()
 
-    useEffect(() => { loadData() }, [date])
-
-    async function loadData() {
-        setLoading(true)
-        const supabase = createClient()
+    // 1. Fetch Data with SWR
+    const { data: reportData, isLoading } = useSWR(user ? ['report-daily', date] : null, async () => {
         const startOfDay = `${date}T00:00:00.000Z`
         const endOfDay = `${date}T23:59:59.999Z`
 
-        const { data: loansData } = await supabase.from('loans')
-            .select('*, user:profiles(name, department), loan_items(id)')
-            .gte('created_at', startOfDay).lte('created_at', endOfDay)
-            .order('created_at', { ascending: false })
-        setLoans(loansData || [])
+        const [loansRes, returnsRes] = await Promise.all([
+            supabase.from('loans')
+                .select('*, user:profiles!loans_user_id_fkey(name, department), loan_items(id)')
+                .gte('created_at', startOfDay).lte('created_at', endOfDay)
+                .order('created_at', { ascending: false }),
+            supabase.from('loan_items')
+                .select('id, returned_at, condition_after, item:items(name), loan:loans(loan_code)')
+                .gte('returned_at', startOfDay).lte('returned_at', endOfDay)
+                .order('returned_at', { ascending: false })
+        ])
 
-        const { data: returnsData } = await supabase.from('loan_items')
-            .select('id, returned_at, condition_after, item:items(name), loan:loans(loan_code)')
-            .gte('returned_at', startOfDay).lte('returned_at', endOfDay)
-            .order('returned_at', { ascending: false })
-
-        const formattedReturns = (returnsData || []).map((r: Record<string, unknown>) => ({
-            id: r.id as number,
-            item_name: (r.item as { name: string })?.name || '',
-            loan_code: (r.loan as { loan_code: string })?.loan_code || '',
-            returned_at: r.returned_at as string,
-            condition_after: r.condition_after as string || 'good',
+        const loans = (loansRes.data || []) as (Loan & { user?: Profile; loan_items?: { id: number }[] })[]
+        const returns = (returnsRes.data || []).map((r: any) => ({
+            id: r.id,
+            item_name: r.item?.name || '',
+            loan_code: r.loan?.loan_code || '',
+            returned_at: r.returned_at,
+            condition_after: r.condition_after || 'good',
         }))
-        setReturns(formattedReturns)
 
-        setStats({
-            loans: loansData?.length || 0,
-            returns: formattedReturns.length,
-            itemsBorrowed: loansData?.reduce((a, l) => a + (l.loan_items?.length || 0), 0) || 0,
-            itemsReturned: formattedReturns.length,
-        })
-        setLoading(false)
-    }
+        return {
+            loans,
+            returns,
+            stats: {
+                loans: loans.length,
+                returns: returns.length,
+                itemsBorrowed: loans.reduce((a, l) => a + (l.loan_items?.length || 0), 0),
+                itemsReturned: returns.length,
+            }
+        }
+    })
+
+    const loans = reportData?.loans || []
+    const returns = reportData?.returns || []
+    const stats = reportData?.stats || { loans: 0, returns: 0, itemsBorrowed: 0, itemsReturned: 0 }
 
     async function handleExport() {
         window.open(`/api/reports/daily-export?date=${date}`, '_blank')
     }
+
+    if (!user) return null
 
     return (
         <div className="space-y-6">
@@ -93,8 +100,11 @@ export default function DailyReportPage() {
                 ))}
             </div>
 
-            {loading ? (
-                <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+            {isLoading ? (
+                <div className="space-y-6">
+                    <CardSkeleton />
+                    <CardSkeleton />
+                </div>
             ) : (
                 <>
                     <Card className="backdrop-blur-xl bg-card/80 border-border/50">

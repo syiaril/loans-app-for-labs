@@ -103,11 +103,8 @@ export default function BarcodePrintPage() {
             }
             const dataURL = canvas.toDataURL('image/png')
             return `
-                <div style="display:inline-block;border:1px solid #eee;padding:15px;margin:5px;text-align:center;page-break-inside:avoid;width:240px;background:white;">
-                    <div style="font-size:14px;font-weight:bold;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.name}</div>
-                    <div style="font-size:11px;color:#666;margin-bottom:8px;">${item.code}</div>
+                <div style="display:inline-block;border:1px solid #eee;padding:5px;margin:3px;text-align:center;page-break-inside:avoid;width:240px;background:white;">
                     <img src="${dataURL}" style="width:210px;height:auto;display:block;margin:0 auto;" />
-                    <div style="font-size:10px;color:#999;margin-top:5px;letter-spacing:1px;">POJOK LAB - SKENSA</div>
                 </div>
             `
         }).join('')

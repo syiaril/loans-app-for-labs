@@ -66,9 +66,8 @@ export default function LoginPage() {
 
         const supabase = createClient()
         const loanCode = generateLoanCode()
-        const now = new Date().toISOString()
-        const dueDate = new Date()
-        dueDate.setHours(23, 59, 59, 999)
+        const now = new Date()
+        const dueDate = new Date(now.getTime() + 24 * 60 * 60 * 1000)
 
         const { data: loan, error: loanError } = await supabase
             .from('loans')
@@ -76,8 +75,8 @@ export default function LoginPage() {
                 user_id: userId,
                 loan_code: loanCode,
                 status: 'borrowed',
-                borrowed_at: now,
-                due_date: dueDate.toISOString().split('T')[0],
+                borrowed_at: now.toISOString(),
+                due_date: dueDate.toISOString(),
                 notes: 'Peminjaman otomatis dari scan publik',
             })
             .select()
@@ -265,48 +264,47 @@ export default function LoginPage() {
     async function handleGuestRegister(e: React.FormEvent) {
         e.preventDefault()
         setLoading(true)
-        const supabase = createClient()
 
-        const tempEmail = `guest_${Date.now()}@lab.internal`
-        const tempPassword = 'password123'
+        try {
+            const res = await fetch('/api/auth/guest-register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    guestName, 
+                    guestDescription, 
+                    guestDepartment 
+                }),
+            })
 
-        const { data, error } = await supabase.auth.signUp({
-            email: tempEmail,
-            password: tempPassword,
-        })
+            const data = await res.json()
 
-        if (error || !data.user) {
-            toast.error('Registrasi gagal: ' + (error?.message || 'Unknown error'))
+            if (!res.ok) {
+                toast.error('Registrasi gagal: ' + (data.error || 'Unknown error'))
+                setLoading(false)
+                return
+            }
+
+            // Client-side login to establish session
+            const supabase = createClient()
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+                email: data.email,
+                password: data.password,
+            })
+
+            if (signInError) {
+                toast.error('Registrasi sukses, tapi gagal masuk otomatis. Silakan lapor ke Admin.')
+                setLoading(false)
+                return
+            }
+
+            toast.success('Registrasi berhasil! Menunggu persetujuan admin.')
+            router.push('/pending-approval')
+        } catch (err: any) {
+            console.error('Guest registration error:', err)
+            toast.error('Terjadi kesalahan jaringan saat registrasi')
+        } finally {
             setLoading(false)
-            return
         }
-
-        const { error: profileError } = await supabase.from('profiles').insert({
-            id: data.user.id,
-            name: guestName,
-            email: tempEmail,
-            role: 'borrower',
-            description: guestDescription,
-            department: guestDepartment,
-            is_approved: false,
-        })
-
-        if (profileError) {
-            toast.error('Gagal menyimpan profil')
-            setLoading(false)
-            return
-        }
-
-        await supabase.from('audit_logs').insert({
-            user_id: data.user.id,
-            action: 'create',
-            model_type: 'profile',
-            description: `Registrasi tamu: ${guestName}`,
-        })
-
-        toast.success('Registrasi berhasil! Menunggu persetujuan admin.')
-        router.push('/pending-approval')
-        setLoading(false)
     }
 
     return (
@@ -472,7 +470,7 @@ export default function LoginPage() {
                                         <Label htmlFor="guestDesc" className="text-sm font-semibold pl-1">Keterangan</Label>
                                         <Input
                                             id="guestDesc"
-                                            placeholder="Siswa / Guru / Dosen / dll"
+                                            placeholder="Siswa / Guru / dll"
                                             value={guestDescription}
                                             onChange={(e) => setGuestDescription(e.target.value)}
                                             required
@@ -483,7 +481,7 @@ export default function LoginPage() {
                                         <Label htmlFor="guestDept" className="text-sm font-semibold pl-1">Kelas / Jurusan / Instansi</Label>
                                         <Input
                                             id="guestDept"
-                                            placeholder="XII IPA 1 / Teknik Kimia / dll"
+                                            placeholder="XII RPL 1 / dll"
                                             value={guestDepartment}
                                             onChange={(e) => setGuestDepartment(e.target.value)}
                                             required

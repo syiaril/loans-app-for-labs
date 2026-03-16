@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import useSWR from 'swr'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -15,37 +16,35 @@ import { TableSkeleton } from '@/components/skeletons'
 import type { AuditLog, Profile } from '@/lib/types/database'
 
 export default function AuditLogPage() {
-    const [logs, setLogs] = useState<(AuditLog & { user?: Profile })[]>([])
-    const [loading, setLoading] = useState(true)
+    const perPage = 10
     const [actionFilter, setActionFilter] = useState('all')
     const [page, setPage] = useState(0)
-    const perPage = 50
 
     const supabase = createClient()
 
-    useEffect(() => {
-        let isMounted = true
-
-        async function loadLogs() {
-            setLoading(true)
-            let query = supabase.from('audit_logs').select('*, user:profiles(name)')
-            if (actionFilter !== 'all') query = query.eq('action', actionFilter)
-            
-            const { data, error } = await query
-                .order('created_at', { ascending: false })
-                .range(page * perPage, (page + 1) * perPage - 1)
-            
-            if (!isMounted) return
-
-            if (data && !error) {
-                setLogs(data)
-            }
-            setLoading(false)
-        }
-
-        loadLogs()
-        return () => { isMounted = false }
+    // 1. Build SWR key
+    const logsKey = useMemo(() => {
+        return ['audit_logs', page, actionFilter]
     }, [page, actionFilter])
+
+    // 2. Fetch with SWR
+    const { data: logsData, error: logsError, isLoading: logsLoading } = useSWR(logsKey, async () => {
+        let query = supabase.from('audit_logs').select('*, user:profiles(name)')
+        if (actionFilter !== 'all') query = query.eq('action', actionFilter)
+        
+        const { data, count, error } = await query
+            .order('created_at', { ascending: false })
+            .range(page * perPage, (page + 1) * perPage - 1)
+        
+        if (error) throw error
+        return { logs: data || [], total: count || 0 }
+    }, {
+        keepPreviousData: true,
+        revalidateOnFocus: false
+    })
+
+    const logs = (logsData?.logs || []) as (AuditLog & { user?: Profile })[]
+    const loading = logsLoading && !logsData
 
     // Reset pagination when filter changes
     useEffect(() => {

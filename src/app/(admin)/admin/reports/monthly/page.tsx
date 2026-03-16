@@ -1,74 +1,87 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Download, Loader2, TrendingUp, Users, Package, Undo2 } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import useSWR from 'swr'
+import { useAuth } from '@/hooks/use-auth'
+import { CardSkeleton } from '@/components/skeletons'
 
 export default function MonthlyReportPage() {
+    const { user } = useAuth()
     const now = new Date()
     const [month, setMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
-    const [loading, setLoading] = useState(true)
-    const [stats, setStats] = useState({ total: 0, items: 0, uniqueUsers: 0, returned: 0, overdue: 0 })
-    const [chartData, setChartData] = useState<{ day: string; count: number }[]>([])
-    const [popularItems, setPopularItems] = useState<{ name: string; count: number }[]>([])
-    const [activeBorrowers, setActiveBorrowers] = useState<{ name: string; count: number }[]>([])
+    const supabase = createClient()
 
-    useEffect(() => { loadData() }, [month])
-
-    async function loadData() {
-        setLoading(true)
-        const supabase = createClient()
+    const { data: reportData, isLoading } = useSWR(user ? ['report-monthly', month] : null, async () => {
         const [year, mon] = month.split('-').map(Number)
         const startDate = new Date(year, mon - 1, 1).toISOString()
         const endDate = new Date(year, mon, 0, 23, 59, 59).toISOString()
 
         // Get loans in month
         const { data: loans } = await supabase.from('loans')
-            .select('*, user:profiles(name), loan_items(id, item:items(name))')
+            .select('*, user:profiles!loans_user_id_fkey(name), loan_items(id, item:items(name))')
             .gte('created_at', startDate).lte('created_at', endDate)
 
-        const totalLoans = loans?.length || 0
-        const totalItems = loans?.reduce((a, l) => a + ((l.loan_items as { id: number }[])?.length || 0), 0) || 0
-        const uniqueUsers = new Set(loans?.map(l => l.user_id)).size
-        const returnedCount = loans?.filter(l => l.status === 'returned').length || 0
-        const overdueCount = loans?.filter(l => l.status === 'overdue').length || 0
-
-        setStats({ total: totalLoans, items: totalItems, uniqueUsers, returned: returnedCount, overdue: overdueCount })
+        const loansData = loans || []
+        const totalLoans = loansData.length
+        const totalItems = loansData.reduce((a, l) => a + ((l.loan_items as any[])?.length || 0), 0)
+        const uniqueUsers = new Set(loansData.map(l => l.user_id)).size
+        const returnedCount = loansData.filter(l => l.status === 'returned').length
+        const overdueCount = loansData.filter(l => l.status === 'overdue').length
 
         // Chart data - loans per day
         const daysInMonth = new Date(year, mon, 0).getDate()
         const dayMap: Record<string, number> = {}
         for (let d = 1; d <= daysInMonth; d++) dayMap[d.toString()] = 0
-        loans?.forEach(l => {
+        loansData.forEach(l => {
             const day = new Date(l.created_at).getDate().toString()
             dayMap[day] = (dayMap[day] || 0) + 1
         })
-        setChartData(Object.entries(dayMap).map(([day, count]) => ({ day, count })))
+        const chartData = Object.entries(dayMap).map(([day, count]) => ({ day, count }))
 
         // Popular items
         const itemCounts: Record<string, number> = {}
-        loans?.forEach(l => {
-            (l.loan_items as { id: number; item: { name: string } }[])?.forEach(li => {
+        loansData.forEach(l => {
+            (l.loan_items as any[])?.forEach(li => {
                 const name = li.item?.name || 'Unknown'
                 itemCounts[name] = (itemCounts[name] || 0) + 1
             })
         })
-        setPopularItems(Object.entries(itemCounts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, count]) => ({ name, count })))
+        const popularItems = Object.entries(itemCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([name, count]) => ({ name, count }))
 
         // Active borrowers
         const borrowerCounts: Record<string, number> = {}
-        loans?.forEach(l => {
-            const name = (l.user as { name: string })?.name || 'Unknown'
+        loansData.forEach(l => {
+            const name = (l.user as any)?.name || 'Unknown'
             borrowerCounts[name] = (borrowerCounts[name] || 0) + 1
         })
-        setActiveBorrowers(Object.entries(borrowerCounts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, count]) => ({ name, count })))
+        const activeBorrowers = Object.entries(borrowerCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([name, count]) => ({ name, count }))
 
-        setLoading(false)
-    }
+        return {
+            stats: { total: totalLoans, items: totalItems, uniqueUsers, returned: returnedCount, overdue: overdueCount },
+            chartData,
+            popularItems,
+            activeBorrowers
+        }
+    })
+
+    const stats = reportData?.stats || { total: 0, items: 0, uniqueUsers: 0, returned: 0, overdue: 0 }
+    const chartData = reportData?.chartData || []
+    const popularItems = reportData?.popularItems || []
+    const activeBorrowers = reportData?.activeBorrowers || []
+
+    if (!user) return null
 
     return (
         <div className="space-y-6">
@@ -85,7 +98,7 @@ export default function MonthlyReportPage() {
                 </div>
             </div>
 
-            {loading ? (
+            {isLoading ? (
                 <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
             ) : (
                 <>

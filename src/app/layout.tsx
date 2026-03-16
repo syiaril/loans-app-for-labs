@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SWRProvider } from "@/components/providers/swr-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,9 +32,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ThemeProvider defaultTheme="light" storageKey="lab-theme">
-          <TooltipProvider>
-            {children}
-          </TooltipProvider>
+          <SWRProvider>
+            <TooltipProvider>
+              {children}
+            </TooltipProvider>
+          </SWRProvider>
           <Toaster richColors position="top-right" />
         </ThemeProvider>
       </body>

@@ -16,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react'
 import type { Category } from '@/lib/types/database'
+import { TableSkeleton } from '@/components/skeletons'
 
 export default function CategoriesPage() {
     const { profile: currentUser } = useAuth()
@@ -131,19 +132,19 @@ export default function CategoriesPage() {
 
             <Card className="backdrop-blur-xl bg-card/80 border-border/50">
                 <CardContent className="pt-6">
-                    {loading ? (
-                        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Nama</TableHead>
-                                    <TableHead>Deskripsi</TableHead>
-                                    <TableHead>Jumlah Barang</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Aksi</TableHead>
-                                </TableRow>
-                            </TableHeader>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Nama</TableHead>
+                                <TableHead>Deskripsi</TableHead>
+                                <TableHead>Jumlah Barang</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Aksi</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        {loading ? (
+                            <TableSkeleton columns={5} rows={5} />
+                        ) : (
                             <TableBody>
                                 {categories.map((cat) => (
                                     <TableRow key={cat.id}>
@@ -171,8 +172,8 @@ export default function CategoriesPage() {
                                 ))}
                                 {categories.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Belum ada kategori</TableCell></TableRow>}
                             </TableBody>
-                        </Table>
-                    )}
+                        )}
+                    </Table>
                 </CardContent>
             </Card>
         </div>

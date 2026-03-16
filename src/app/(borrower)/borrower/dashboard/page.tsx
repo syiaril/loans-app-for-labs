@@ -1,42 +1,57 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { createClient } from '@/lib/supabase/client'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { STATUS_LABELS, STATUS_COLORS, formatDate, formatDateTime } from '@/lib/utils'
+import { STATUS_LABELS, STATUS_COLORS, formatDateTime } from '@/lib/utils'
 import { Package, Clock, AlertTriangle, CheckCircle } from 'lucide-react'
 import CountdownTimer from '@/components/loans/countdown-timer'
+import { useAuth } from '@/hooks/use-auth'
+import useSWR from 'swr'
+import { CardSkeleton } from '@/components/skeletons'
 
-export default async function BorrowerDashboard() {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) redirect('/login')
+export default function BorrowerDashboard() {
+    const { user, profile } = useAuth()
+    const supabase = createClient()
 
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
+    // 1. Fetch active loans with SWR
+    const { data: activeLoans = [], isLoading: activeLoading } = useSWR(user ? ['activeLoans', user.id] : null, async () => {
+        const { data } = await supabase
+            .from('loans')
+            .select(`*, loan_items(*, item:items(name, code))`)
+            .eq('user_id', user!.id)
+            .in('status', ['pending', 'approved', 'borrowed', 'partial_return', 'overdue'])
+            .order('created_at', { ascending: false })
+        return data || []
+    })
 
-    // Active loans
-    const { data: activeLoans } = await supabase
-        .from('loans')
-        .select(`*, loan_items(*, item:items(name, code))`)
-        .eq('user_id', user.id)
-        .in('status', ['pending', 'approved', 'borrowed', 'partial_return', 'overdue'])
-        .order('created_at', { ascending: false })
+    // 2. Fetch recent loans with SWR
+    const { data: recentLoans = [], isLoading: recentLoading } = useSWR(user ? ['recentLoans', user.id] : null, async () => {
+        const { data } = await supabase
+            .from('loans')
+            .select(`*, loan_items(*, item:items(name, code))`)
+            .eq('user_id', user!.id)
+            .in('status', ['returned', 'cancelled'])
+            .order('created_at', { ascending: false })
+            .limit(10)
+        return data || []
+    })
 
-    // Recent history
-    const { data: recentLoans } = await supabase
-        .from('loans')
-        .select(`*, loan_items(*, item:items(name, code))`)
-        .eq('user_id', user.id)
-        .in('status', ['returned', 'cancelled'])
-        .order('created_at', { ascending: false })
-        .limit(5)
+    if (!user) return null
+    if (!profile) return <div className="p-8 text-center">Loading profile...</div>
 
-    const totalActive = activeLoans?.length || 0
-    const totalItems = activeLoans?.reduce((acc, l) => acc + (l.loan_items?.length || 0), 0) || 0
-    const overdueCount = activeLoans?.filter(l => l.status === 'overdue').length || 0
+    const totalActive = activeLoans.length
+    const totalItems = activeLoans.reduce((acc, l) => acc + (l.loan_items?.length || 0), 0)
+    const now = new Date()
+    const overdueCount = activeLoans.filter(l => 
+        l.status === 'overdue' || 
+        (['borrowed', 'partial_return'].includes(l.status) && l.due_date && new Date(l.due_date) < now)
+    ).length
+
+    if (activeLoading && recentLoading && activeLoans.length === 0) {
+        return <div className="space-y-6"><CardSkeleton /></div>
+    }
 
     return (
         <div className="space-y-6">
@@ -153,7 +168,7 @@ export default async function BorrowerDashboard() {
                                             {STATUS_LABELS[loan.status]}
                                         </Badge>
                                     </div>
-                                    <span className="text-xs text-muted-foreground">{formatDate(loan.created_at)}</span>
+                                    <span className="text-xs text-muted-foreground">{formatDateTime(loan.created_at)}</span>
                                 </div>
                             ))}
                         </div>

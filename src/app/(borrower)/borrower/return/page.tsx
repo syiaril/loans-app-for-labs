@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/use-auth'
+import useSWR, { mutate } from 'swr'
 import BarcodeScanner from '@/components/scanner/barcode-scanner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -11,9 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { STATUS_LABELS, STATUS_COLORS, CONDITION_LABELS, formatDate } from '@/lib/utils'
+import { STATUS_LABELS, STATUS_COLORS, CONDITION_LABELS, formatDate, formatDateTime } from '@/lib/utils'
 import { Undo2, Package, Loader2, CheckCircle } from 'lucide-react'
 import type { Loan, LoanItem, Item } from '@/lib/types/database'
+import { CardSkeleton } from '@/components/skeletons'
 
 interface ActiveLoan extends Loan {
     loan_items: (LoanItem & { item: Item })[]
@@ -21,41 +23,25 @@ interface ActiveLoan extends Loan {
 
 export default function ReturnPage() {
     const { user } = useAuth()
-    const [loans, setLoans] = useState<ActiveLoan[]>([])
-    const [loading, setLoading] = useState(true)
-    const [returnForms, setReturnForms] = useState<Record<number, { condition: string; note: string }>>({})
     const [processing, setProcessing] = useState<number | null>(null)
-
-    const [refreshSignal, setRefreshSignal] = useState(0)
-
+    const [returnForms, setReturnForms] = useState<Record<number, { condition: string; note: string }>>({})
     const supabase = createClient()
 
-    useEffect(() => {
-        let isMounted = true
+    // 1. Fetch active loans with SWR
+    const { data: activeLoansData = [], isLoading: loansLoading } = useSWR(user ? ['returnable-loans', user.id] : null, async () => {
+        const { data } = await supabase
+            .from('loans')
+            .select(`*, loan_items(*, item:items(*))`)
+            .eq('user_id', user!.id)
+            .in('status', ['borrowed', 'partial_return', 'overdue', 'approved'])
+            .order('created_at', { ascending: false })
+        return (data as ActiveLoan[]) || []
+    }, {
+        revalidateOnFocus: true
+    })
 
-        async function loadLoans() {
-            if (!user) return
-            setLoading(true)
-            const { data, error } = await supabase
-                .from('loans')
-                .select(`*, loan_items(*, item:items(*))`)
-                .eq('user_id', user.id)
-                .in('status', ['borrowed', 'partial_return', 'overdue', 'approved'])
-                .order('created_at', { ascending: false })
-            
-            if (!isMounted) return
-
-            if (data && !error) {
-                setLoans((data as ActiveLoan[]) || [])
-            }
-            setLoading(false)
-        }
-
-        loadLoans()
-        return () => { isMounted = false }
-    }, [user, refreshSignal])
-
-    const refresh = () => setRefreshSignal(s => s + 1)
+    const loans = activeLoansData
+    const loading = loansLoading && loans.length === 0
 
     async function handleScanReturn(barcode: string) {
         const supabase = createClient()
@@ -90,48 +76,66 @@ export default function ReturnPage() {
         const supabase = createClient()
         const now = new Date().toISOString()
 
-        // Update loan_item
-        await supabase
-            .from('loan_items')
-            .update({
-                returned_at: now,
-                condition_after: form.condition,
-                condition_note: form.note || null,
-            })
-            .eq('id', loanItem.id)
+        try {
+            // Update loan_item and item parallelly
+            const newStatus = form.condition === 'lost' ? 'lost' : form.condition === 'damaged' ? 'maintenance' : 'available'
+            const newCondition = form.condition === 'damaged' ? 'poor' : form.condition === 'lost' ? 'poor' : form.condition
 
-        // Update item status
-        const newStatus = form.condition === 'lost' ? 'lost' : form.condition === 'damaged' ? 'maintenance' : 'available'
-        await supabase.from('items').update({
-            status: newStatus,
-            condition: form.condition === 'damaged' ? 'poor' : form.condition === 'lost' ? 'poor' : form.condition
-        }).eq('id', loanItem.item_id)
+            const updates: any[] = [
+                supabase
+                    .from('loan_items')
+                    .update({
+                        returned_at: now,
+                        condition_after: form.condition,
+                        condition_note: form.note || null,
+                    })
+                    .eq('id', loanItem.id),
+                supabase
+                    .from('items')
+                    .update({
+                        status: newStatus,
+                        condition: newCondition
+                    })
+                    .eq('id', loanItem.item_id)
+            ]
 
-        // Check if all items in this loan are returned
-        const loan = loans.find(l => l.id === loanId)
-        if (loan) {
-            const unreturned = loan.loan_items.filter(
-                li => li.id !== loanItem.id && !li.returned_at
-            )
-            if (unreturned.length === 0) {
-                await supabase.from('loans').update({ status: 'returned', returned_at: now }).eq('id', loanId)
-            } else {
-                await supabase.from('loans').update({ status: 'partial_return' }).eq('id', loanId)
+            // Check loan status update
+            const loan = loans.find(l => l.id === loanId)
+            if (loan) {
+                const unreturned = loan.loan_items.filter(
+                    li => li.id !== loanItem.id && !li.returned_at
+                )
+                if (unreturned.length === 0) {
+                    updates.push(supabase.from('loans').update({ status: 'returned', returned_at: now }).eq('id', loanId))
+                } else {
+                    updates.push(supabase.from('loans').update({ status: 'partial_return' }).eq('id', loanId))
+                }
             }
+
+            // Audit log - don't strictly wait to finish but start it
+            updates.push(supabase.from('audit_logs').insert({
+                user_id: user!.id,
+                action: 'return',
+                model_type: 'item',
+                model_id: loanItem.item_id,
+                description: `Pengembalian: ${loanItem.item.name} - Kondisi: ${CONDITION_LABELS[form.condition]}`,
+            }))
+
+            await Promise.all(updates)
+
+            toast.success(`${loanItem.item.name} berhasil dikembalikan`)
+            
+            // Invalidate caches
+            mutate(['returnable-loans', user!.id])
+            mutate(['activeLoans', user!.id])
+            mutate(['recentLoans', user!.id])
+            
+        } catch (error) {
+            console.error(error)
+            toast.error('Gagal memproses pengembalian')
+        } finally {
+            setProcessing(null)
         }
-
-        // Audit log
-        await supabase.from('audit_logs').insert({
-            user_id: user!.id,
-            action: 'return',
-            model_type: 'item',
-            model_id: loanItem.item_id,
-            description: `Pengembalian: ${loanItem.item.name} - Kondisi: ${CONDITION_LABELS[form.condition]}`,
-        })
-
-        toast.success(`${loanItem.item.name} berhasil dikembalikan`)
-        setProcessing(null)
-        refresh()
     }
 
     if (loading) {
@@ -160,7 +164,13 @@ export default function ReturnPage() {
             </Card>
 
             {/* Active Loans */}
-            {loans.length === 0 ? (
+            {loading ? (
+                <Card className="backdrop-blur-xl bg-card/80 border-border/50">
+                    <CardContent className="p-6">
+                        <CardSkeleton lines={3} />
+                    </CardContent>
+                </Card>
+            ) : loans.length === 0 ? (
                 <Card className="backdrop-blur-xl bg-card/80 border-border/50">
                     <CardContent className="py-12 text-center">
                         <CheckCircle className="w-12 h-12 text-emerald-400 mx-auto mb-3" />

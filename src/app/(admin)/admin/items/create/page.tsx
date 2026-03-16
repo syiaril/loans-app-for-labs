@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2, Upload } from 'lucide-react'
+import { ArrowLeft, Loader2, Upload, RefreshCw } from 'lucide-react'
 import type { Category } from '@/lib/types/database'
 
 export default function CreateItemPage() {
@@ -26,6 +26,35 @@ export default function CreateItemPage() {
         category_id: '', name: '', code: '', barcode: '', description: '',
         condition: 'good', location: '', is_active: true,
     })
+
+    function generateNumericBarcode() {
+        const timestampPart = Date.now().toString().slice(-8);
+        const randomPart = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        return timestampPart + randomPart;
+    }
+
+    function generateItemCode() {
+        // Generate a random alphanumeric code like ITM-A1B2C3
+        return 'ITM-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
+    // Auto-generate barcode and code on mount
+    useState(() => {
+        let updates: any = {};
+        if (!form.barcode) updates.barcode = generateNumericBarcode();
+        if (!form.code) updates.code = generateItemCode();
+        if (Object.keys(updates).length > 0) {
+            setForm(f => ({ ...f, ...updates }))
+        }
+    })
+
+    function handleRegenerateBarcode() {
+        setForm(f => ({ ...f, barcode: generateNumericBarcode() }))
+    }
+
+    function handleRegenerateCode() {
+        setForm(f => ({ ...f, code: generateItemCode() }))
+    }
 
     useEffect(() => {
         async function load() {
@@ -101,8 +130,24 @@ export default function CreateItemPage() {
                         </div>
                         <div className="space-y-2"><Label>Nama Barang *</Label><Input value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} required /></div>
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-2"><Label>Kode *</Label><Input value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value }))} required placeholder="AU-001" /></div>
-                            <div className="space-y-2"><Label>Barcode *</Label><Input value={form.barcode} onChange={(e) => setForm(f => ({ ...f, barcode: e.target.value }))} required placeholder="ITM000001" /></div>
+                            <div className="space-y-2">
+                                <Label>Kode Barang *</Label>
+                                <div className="flex items-center gap-2">
+                                    <Input value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value }))} required placeholder="Otomatis" />
+                                    <Button type="button" variant="outline" size="icon" onClick={handleRegenerateCode} title="Generate ulang kode">
+                                        <RefreshCw className="w-4 h-4 shrink-0" />
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Barcode *</Label>
+                                <div className="flex items-center gap-2">
+                                    <Input value={form.barcode} onChange={(e) => setForm(f => ({ ...f, barcode: e.target.value }))} required placeholder="Otomatis terisi" />
+                                    <Button type="button" variant="outline" size="icon" onClick={handleRegenerateBarcode} title="Generate ulang barcode">
+                                        <RefreshCw className="w-4 h-4 shrink-0" />
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
                         <div className="space-y-2"><Label>Deskripsi</Label><Textarea value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} /></div>
                         <div className="grid grid-cols-2 gap-3">

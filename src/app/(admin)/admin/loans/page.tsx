@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import useSWR from 'swr'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,23 +9,20 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { STATUS_LABELS, STATUS_COLORS, formatDate } from '@/lib/utils'
-import { Search, Loader2 } from 'lucide-react'
+import { STATUS_LABELS, STATUS_COLORS, formatDateTime } from '@/lib/utils'
+import { Search, Loader2, Eye } from 'lucide-react'
 import Link from 'next/link'
 import DataPagination from '@/components/data-pagination'
 import { TableSkeleton } from '@/components/skeletons'
 import type { Loan, Profile } from '@/lib/types/database'
 
 export default function LoansPage() {
-    const [loans, setLoans] = useState<(Loan & { user?: Profile })[]>([])
-    const [loading, setLoading] = useState(true)
-    const [search, setSearch] = useState('')
-    const [searchInput, setSearchInput] = useState('') // Internal state for search input
-    const [statusFilter, setStatusFilter] = useState('all')
+    const perPage = 10
     const [page, setPage] = useState(0)
-    const [totalItems, setTotalItems] = useState(0)
+    const [statusFilter, setStatusFilter] = useState('all')
+    const [search, setSearch] = useState('')
+    const [searchInput, setSearchInput] = useState('')
     const [mounted, setMounted] = useState(false)
-    const perPage = 20
 
     const supabase = createClient()
 
@@ -32,31 +30,45 @@ export default function LoansPage() {
         setMounted(true)
     }, [])
 
-    useEffect(() => {
-        let isMounted = true
+    // 1. Build SWR key for loans
+    const loansKey = useMemo(() => {
+        return ['loans', page, statusFilter, search]
+    }, [page, statusFilter, search])
 
-        async function loadLoans() {
-            setLoading(true)
-            let query = supabase.from('loans').select('*, user:profiles(name, department), loan_items(id)', { count: 'exact' })
-            if (statusFilter !== 'all') query = query.eq('status', statusFilter)
-            if (search) query = query.or(`loan_code.ilike.%${search}%`)
-            
-            const { data, count, error } = await query
-                .order('created_at', { ascending: false })
-                .range(page * perPage, (page + 1) * perPage - 1)
-            
-            if (!isMounted) return
-
-            if (data && !error) {
-                setLoans(data)
-                if (count !== null) setTotalItems(count)
+    // 2. Fetch loans with SWR
+    const { data: loansData, error: loansError, isLoading: loansLoading } = useSWR(loansKey, async () => {
+        const now = new Date().toISOString()
+        
+        let query = supabase
+            .from('loans')
+            .select('*, user:profiles!loans_user_id_fkey(name, department), loan_items(id)', { count: 'exact' })
+        
+        if (statusFilter !== 'all') {
+            if (statusFilter === 'overdue') {
+                query = query.or(`status.eq.overdue,and(status.eq.borrowed,due_date.lt.${now}),and(status.eq.partial_return,due_date.lt.${now})`)
+            } else {
+                query = query.eq('status', statusFilter)
             }
-            setLoading(false)
         }
 
-        loadLoans()
-        return () => { isMounted = false }
-    }, [page, statusFilter, search])
+        if (search) {
+            query = query.ilike('loan_code', `%${search}%`)
+        }
+        
+        const { data, count, error } = await query
+            .order('created_at', { ascending: false })
+            .range(page * perPage, (page + 1) * perPage - 1)
+
+        if (error) throw error
+        return { loans: data || [], total: count || 0 }
+    }, {
+        keepPreviousData: true,
+        revalidateOnFocus: false
+    })
+
+    const loans = (loansData?.loans || []) as (Loan & { user?: Profile })[]
+    const totalItems = loansData?.total || 0
+    const loading = loansLoading && !loansData
 
     // Reset page when filter/search changes
     useEffect(() => {
@@ -75,39 +87,29 @@ export default function LoansPage() {
             </div>
 
             <Card className="backdrop-blur-xl bg-card/80 border-border/50">
-                <CardHeader className="pb-6">
-                    <div className="flex flex-col gap-4">
-                        <div className="flex flex-col sm:flex-row gap-3">
-                            <div className="relative flex-1 flex gap-2">
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                                    <Input 
-                                        placeholder="Cari kode pinjam..." 
-                                        value={searchInput} 
-                                        onChange={(e) => setSearchInput(e.target.value)} 
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()} 
-                                        className="h-10 pl-10 rounded-lg text-sm bg-card/50 border-border/60" 
-                                    />
-                                </div>
-                                <Button 
-                                    variant="secondary" 
-                                    onClick={handleSearch} 
-                                    className="h-10 px-4 rounded-lg font-bold active:scale-95 transition-all shrink-0"
-                                >
-                                    CARI
-                                </Button>
+                <CardHeader>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="relative flex-1 flex gap-2">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input 
+                                    placeholder="Cari kode pinjam..." 
+                                    value={searchInput} 
+                                    onChange={(e) => setSearchInput(e.target.value)} 
+                                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()} 
+                                    className="pl-10" 
+                                />
                             </div>
+                            <Button variant="secondary" onClick={handleSearch} className="px-3 shrink-0">Cari</Button>
                         </div>
                         {mounted && (
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                <SelectTrigger className="h-9 rounded-md flex-1 sm:max-w-[200px]"><SelectValue placeholder="Status Peminjaman" /></SelectTrigger>
-                                <SelectContent className="rounded-lg">
-                                    <SelectItem value="all">Semua Status</SelectItem>
-                                    {Object.entries(STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v as string}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                          </div>
+                          <Select value={statusFilter} onValueChange={setStatusFilter}>
+                              <SelectTrigger className="w-[180px] shrink-0"><SelectValue placeholder="Status" /></SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="all">Semua Status</SelectItem>
+                                  {Object.entries(STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v as string}</SelectItem>)}
+                              </SelectContent>
+                          </Select>
                         )}
                     </div>
                 </CardHeader>
@@ -124,9 +126,10 @@ export default function LoansPage() {
                                         <TableHead>Tgl Pinjam</TableHead>
                                         <TableHead>Jatuh Tempo</TableHead>
                                         <TableHead>Tgl Kembali</TableHead>
+                                        <TableHead className="text-right">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
-                                <TableSkeleton columns={7} rows={8} />
+                                <TableSkeleton columns={8} rows={8} />
                             </Table>
                         </div>
                     ) : (
@@ -141,6 +144,7 @@ export default function LoansPage() {
                                         <TableHead>Tgl Pinjam</TableHead>
                                         <TableHead>Jatuh Tempo</TableHead>
                                         <TableHead>Tgl Kembali</TableHead>
+                                        <TableHead className="text-right">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -153,18 +157,34 @@ export default function LoansPage() {
                                             </TableCell>
                                             <TableCell>
                                                 <div className="py-0.5">
-                                                    <p className="text-xs font-bold tracking-tight">{(loan.user as Profile)?.name}</p>
-                                                    <p className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">{(loan.user as Profile)?.department}</p>
+                                                    <p className="text-xs font-bold tracking-tight">{(loan.user as Profile)?.name || '-'}</p>
+                                                    <p className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">{(loan.user as Profile)?.department || '-'}</p>
                                                 </div>
                                             </TableCell>
-                                            <TableCell><Badge variant="secondary" className="font-bold text-[10px]">{(loan as Loan & { loan_items?: { id: number }[] }).loan_items?.length || 0} ITEM</Badge></TableCell>
-                                            <TableCell><Badge variant="outline" className={`text-[9px] font-black uppercase tracking-widest ${STATUS_COLORS[loan.status]}`}>{STATUS_LABELS[loan.status]}</Badge></TableCell>
-                                            <TableCell className="text-xs font-medium">{loan.borrowed_at ? formatDate(loan.borrowed_at) : '-'}</TableCell>
-                                            <TableCell className="text-xs font-medium">{loan.due_date ? formatDate(loan.due_date) : '-'}</TableCell>
-                                            <TableCell className="text-xs font-medium">{loan.returned_at ? formatDate(loan.returned_at) : '-'}</TableCell>
+                                            <TableCell><Badge variant="secondary" className="font-bold text-[10px]">{loan.loan_items?.length || 0} ITEM</Badge></TableCell>
+                                            <TableCell>
+                                                {(() => {
+                                                    const isActuallyOverdue = loan.status === 'overdue' || (['borrowed', 'partial_return'].includes(loan.status) && loan.due_date && new Date(loan.due_date) < new Date());
+                                                    return (
+                                                        <Badge variant="outline" className={`text-[9px] font-black uppercase tracking-widest ${isActuallyOverdue ? STATUS_COLORS.overdue : STATUS_COLORS[loan.status]}`}>
+                                                            {isActuallyOverdue ? STATUS_LABELS.overdue : STATUS_LABELS[loan.status]}
+                                                        </Badge>
+                                                    );
+                                                })()}
+                                            </TableCell>
+                                            <TableCell className="text-xs font-medium">{loan.borrowed_at ? formatDateTime(loan.borrowed_at) : '-'}</TableCell>
+                                            <TableCell className="text-xs font-medium">{loan.due_date ? formatDateTime(loan.due_date) : '-'}</TableCell>
+                                            <TableCell className="text-xs font-medium">{loan.returned_at ? formatDateTime(loan.returned_at) : '-'}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10 transition-colors" asChild title="Detail Peminjaman">
+                                                    <Link href={`/admin/loans/${loan.id}`}>
+                                                        <Eye className="w-4 h-4" />
+                                                    </Link>
+                                                </Button>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
-                                    {loans.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Tidak ada peminjaman ditemukan</TableCell></TableRow>}
+                                    {loans.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Tidak ada peminjaman ditemukan</TableCell></TableRow>}
                                 </TableBody>
                             </Table>
                         </div>

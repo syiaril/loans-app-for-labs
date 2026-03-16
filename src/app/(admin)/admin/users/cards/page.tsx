@@ -75,6 +75,7 @@ export default function UserCardsPrintPage() {
             return
         }
 
+        const supabase = createClient()
         // Build print HTML
         const cardsHTML = selectedUsers.map(user => {
             // Generate barcode image data URL
@@ -134,9 +135,13 @@ export default function UserCardsPrintPage() {
                         <div class="body-section">
                             <!-- Photo -->
                             <div class="photo-container">
-                                <div class="photo-placeholder">
-                                    <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                                </div>
+                                ${user.photo ? 
+                                    `<img src="${supabase.storage.from('profiles').getPublicUrl(user.photo).data.publicUrl}" style="width: 100%; height: 100%; object-fit: cover;" />` 
+                                    : 
+                                    `<div class="photo-placeholder">
+                                        <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" class="css-i6dzq1"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                    </div>`
+                                }
                             </div>
 
                             <!-- User Data -->

@@ -31,16 +31,15 @@ export default function BorrowerNavbar() {
         try {
             const supabase = createClient()
 
-            try {
-                if (profile?.id) {
-                    await supabase.from('audit_logs').insert({
-                        user_id: profile.id,
-                        action: 'logout',
-                        description: 'Logout dari aplikasi',
-                    })
-                }
-            } catch (e) {
-                console.error('Failed to log logout:', e)
+            // Fire and forget audit log (or fire but don't strictly wait to finish before signOut)
+            if (profile?.id) {
+                supabase.from('audit_logs').insert({
+                    user_id: profile.id,
+                    action: 'logout',
+                    description: 'Logout dari aplikasi',
+                }).then(({ error }) => {
+                    if (error) console.error('Failed to log logout:', error)
+                })
             }
 
             const { error } = await supabase.auth.signOut()

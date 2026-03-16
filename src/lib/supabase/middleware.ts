@@ -47,7 +47,7 @@ export async function updateSession(request: NextRequest) {
     const pathname = request.nextUrl.pathname
 
     // Public routes - accessible without login
-    if (pathname === '/' || pathname.startsWith('/api/scan') || pathname.startsWith('/api/quick-return') || pathname.startsWith('/api/reports/') || pathname.startsWith('/api/auth/barcode')) {
+    if (pathname === '/' || pathname.startsWith('/api/scan') || pathname.startsWith('/api/quick-return') || pathname.startsWith('/api/reports/') || pathname.startsWith('/api/auth/barcode') || pathname.startsWith('/api/auth/guest-register')) {
         return supabaseResponse
     }
 

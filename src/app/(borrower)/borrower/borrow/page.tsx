@@ -132,8 +132,24 @@ export default function BorrowPage() {
 
             {/* Items Grid */}
             {loading ? (
-                <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-6 h-6 animate-spin" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <Card key={i} className="backdrop-blur-xl bg-card/60 border-border/40 shadow-sm rounded-2xl overflow-hidden">
+                            <CardContent className="p-0 animate-pulse">
+                                <div className="p-5 flex items-center gap-4">
+                                    <div className="w-16 h-16 rounded-2xl bg-muted/60 shrink-0"></div>
+                                    <div className="flex-1 space-y-2">
+                                        <div className="h-4 bg-muted/60 rounded w-3/4"></div>
+                                        <div className="h-3 bg-muted/60 rounded w-1/2"></div>
+                                        <div className="h-5 bg-muted/60 rounded w-1/4 mt-2"></div>
+                                    </div>
+                                    <div className="shrink-0 pl-4 border-l border-border/40 h-16 flex items-center">
+                                        <div className="w-14 h-14 rounded-2xl bg-muted/60"></div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

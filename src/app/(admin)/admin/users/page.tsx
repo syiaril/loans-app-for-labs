@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import useSWR, { mutate } from 'swr'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/use-auth'
-import { Plus, Search, Check, Pencil, Trash2, Loader2, Printer } from 'lucide-react'
+import { Plus, Search, Check, CheckCircle, Pencil, Trash2, Loader2, Printer, User } from 'lucide-react'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog'
 import Link from 'next/link'
 import DataPagination from '@/components/data-pagination'
@@ -19,16 +20,13 @@ import type { Profile } from '@/lib/types/database'
 
 export default function UsersPage() {
     const { profile: currentUser } = useAuth()
-    const [users, setUsers] = useState<Profile[]>([])
-    const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
-    const [searchInput, setSearchInput] = useState('') // Internal state for search input
+    const [searchInput, setSearchInput] = useState('')
     const [roleFilter, setRoleFilter] = useState('all')
     const [approvalFilter, setApprovalFilter] = useState('all')
     const [page, setPage] = useState(0)
-    const [totalItems, setTotalItems] = useState(0)
     const [mounted, setMounted] = useState(false)
-    const perPage = 20
+    const perPage = 10
 
     const supabase = createClient()
 
@@ -36,33 +34,33 @@ export default function UsersPage() {
         setMounted(true)
     }, [])
 
-    useEffect(() => {
-        let isMounted = true
-
-        async function loadUsers() {
-            setLoading(true)
-            let query = supabase.from('profiles').select('*', { count: 'exact' })
-            if (roleFilter !== 'all') query = query.eq('role', roleFilter)
-            if (approvalFilter === 'approved') query = query.eq('is_approved', true)
-            if (approvalFilter === 'pending') query = query.eq('is_approved', false)
-            if (search) query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,card_barcode.ilike.%${search}%,department.ilike.%${search}%`)
-            
-            const { data, count, error } = await query
-                .order('created_at', { ascending: false })
-                .range(page * perPage, (page + 1) * perPage - 1)
-            
-            if (!isMounted) return
-
-            if (!error && data) {
-                setUsers(data)
-                if (count !== null) setTotalItems(count)
-            }
-            setLoading(false)
-        }
-
-        loadUsers()
-        return () => { isMounted = false }
+    // 1. Build SWR key for users based on filters
+    const usersKey = useMemo(() => {
+        return ['users', page, roleFilter, approvalFilter, search]
     }, [page, roleFilter, approvalFilter, search])
+
+    // 2. Fetch users with SWR
+    const { data: usersData, error: usersError, isLoading: usersLoading } = useSWR(usersKey, async () => {
+        let query = supabase.from('profiles').select('*', { count: 'exact' })
+        if (roleFilter !== 'all') query = query.eq('role', roleFilter)
+        if (approvalFilter === 'approved') query = query.eq('is_approved', true)
+        if (approvalFilter === 'pending') query = query.eq('is_approved', false)
+        if (search) query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,card_barcode.ilike.%${search}%,department.ilike.%${search}%`)
+        
+        const { data, count, error } = await query
+            .order('created_at', { ascending: false })
+            .range(page * perPage, (page + 1) * perPage - 1)
+        
+        if (error) throw error
+        return { users: data || [], total: count || 0 }
+    }, {
+        keepPreviousData: true,
+        revalidateOnFocus: false
+    })
+
+    const users = usersData?.users || []
+    const totalItems = usersData?.total || 0
+    const loading = usersLoading && !usersData
 
     // Reset pagination when filters change
     useEffect(() => {
@@ -79,12 +77,8 @@ export default function UsersPage() {
         })
         toast.success('Pengguna disetujui')
         
-        // Refresh current page manually
-        const { data, count } = await supabase.from('profiles').select('*', { count: 'exact' })
-            .order('created_at', { ascending: false })
-            .range(page * perPage, (page + 1) * perPage - 1)
-        if (data) setUsers(data)
-        if (count !== null) setTotalItems(count)
+        // Mutate SWR
+        mutate(usersKey)
     }
 
     async function deleteUser(userId: string) {
@@ -108,12 +102,8 @@ export default function UsersPage() {
         })
         toast.success('Pengguna dihapus')
         
-        // Refresh current page manually
-        const { data: refreshed, count: c } = await supabase.from('profiles').select('*', { count: 'exact' })
-            .order('created_at', { ascending: false })
-            .range(page * perPage, (page + 1) * perPage - 1)
-        if (refreshed) setUsers(refreshed)
-        if (c !== null) setTotalItems(c)
+        // Mutate SWR
+        mutate(usersKey)
     }
 
     const handleSearch = () => {
@@ -184,6 +174,7 @@ export default function UsersPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        <TableHead className="w-14">Foto</TableHead>
                                         <TableHead>Nama</TableHead>
                                         <TableHead>Email</TableHead>
                                         <TableHead>Role</TableHead>
@@ -193,7 +184,7 @@ export default function UsersPage() {
                                         <TableHead className="text-right">Aksi</TableHead>
                                     </TableRow>
                                 </TableHeader>
-                                <TableSkeleton columns={7} rows={8} />
+                                <TableSkeleton columns={8} rows={8} />
                             </Table>
                         </div>
                     ) : (
@@ -201,6 +192,7 @@ export default function UsersPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        <TableHead className="w-14">Foto</TableHead>
                                         <TableHead>Nama</TableHead>
                                         <TableHead>Email</TableHead>
                                         <TableHead>Role</TableHead>
@@ -211,8 +203,21 @@ export default function UsersPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {users.map((u) => (
+                                    {users.map((u: Profile) => (
                                         <TableRow key={u.id}>
+                                            <TableCell>
+                                                {u.photo ? (
+                                                    <img 
+                                                        src={supabase.storage.from('profiles').getPublicUrl(u.photo).data.publicUrl} 
+                                                        alt={u.name} 
+                                                        className="w-10 h-10 rounded-full object-cover border border-border"
+                                                    />
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border border-border/50">
+                                                        <User className="w-5 h-5 text-primary/60" />
+                                                    </div>
+                                                )}
+                                            </TableCell>
                                             <TableCell className="font-medium">{u.name}</TableCell>
                                             <TableCell className="text-muted-foreground text-sm">{u.email || '-'}</TableCell>
                                             <TableCell>
@@ -232,8 +237,9 @@ export default function UsersPage() {
                                             <TableCell className="text-right">
                                                 <div className="flex items-center justify-end gap-1">
                                                     {!u.is_approved && (
-                                                        <Button variant="ghost" size="icon" onClick={() => approveUser(u.id)} title="Setujui">
-                                                            <Check className="w-4 h-4 text-emerald-400" />
+                                                        <Button variant="outline" size="sm" onClick={() => approveUser(u.id)} className="h-8 border-emerald-500/50 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium mr-1 transition-colors">
+                                                            <CheckCircle className="w-4 h-4 mr-1.5" />
+                                                            Setujui
                                                         </Button>
                                                     )}
                                                     <Link href={`/admin/users/${u.id}/edit`}>
@@ -259,7 +265,7 @@ export default function UsersPage() {
                                         </TableRow>
                                     ))}
                                     {users.length === 0 && (
-                                        <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Tidak ada pengguna ditemukan</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Tidak ada pengguna ditemukan</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>

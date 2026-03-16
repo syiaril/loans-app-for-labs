@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from '@/components/theme-provider'
 import type { Item } from '@/lib/types/database'
+import { CardSkeleton } from '@/components/skeletons'
 
 interface ScanResult {
   item: Item & { category?: { name: string } }
@@ -193,9 +194,9 @@ export default function PublicScanPage() {
 
             {/* Loading */}
             {loading && (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
-              </div>
+              <Card className="backdrop-blur-2xl bg-card/70 border-border/40 shadow-xl overflow-hidden mt-4">
+                <CardSkeleton lines={3} />
+              </Card>
             )}
 
             {/* Scan Result */}
@@ -287,10 +288,12 @@ export default function PublicScanPage() {
                         className="h-11 shadow-sm"
                       />
                       <Button onClick={handleSearch} disabled={searchLoading} className="h-11 px-6">
-                        {searchLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "CARI"}
+                        CARI
                       </Button>
                     </div>
-                    {searchResults.length > 0 && (
+                    {searchLoading ? (
+                      <div className="mt-4"><CardSkeleton lines={2} /></div>
+                    ) : searchResults.length > 0 && (
                       <div className="mt-4 space-y-2 max-h-[300px] overflow-y-auto pr-1">
                         {searchResults.map((item) => (
                           <div

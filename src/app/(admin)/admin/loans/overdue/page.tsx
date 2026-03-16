@@ -8,8 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { toast } from 'sonner'
-import { STATUS_LABELS, STATUS_COLORS, formatDate } from '@/lib/utils'
-import { AlertTriangle, Loader2 } from 'lucide-react'
+import { STATUS_LABELS, STATUS_COLORS, formatDateTime } from '@/lib/utils'
+import { AlertTriangle, Loader2, Eye } from 'lucide-react'
 import Link from 'next/link'
 import type { Loan, Profile } from '@/lib/types/database'
 
@@ -26,15 +26,12 @@ export default function OverdueLoansPage() {
 
         async function initAndLoad() {
             setLoading(true)
-            // First, mark overdue loans
-            const today = new Date().toISOString().split('T')[0]
-            await supabase.from('loans').update({ status: 'overdue' })
-                .in('status', ['borrowed', 'partial_return'])
-                .lt('due_date', today)
-
+            const now = new Date().toISOString()
+            
+            // Fetch items where status is 'overdue' OR (active statuses AND due_date < now)
             const { data, error } = await supabase.from('loans')
-                .select('*, user:profiles(name, department), loan_items(id)')
-                .eq('status', 'overdue')
+                .select('*, user:profiles!loans_user_id_fkey(name, department), loan_items(id)')
+                .or(`status.eq.overdue,and(status.eq.borrowed,due_date.lt.${now}),and(status.eq.partial_return,due_date.lt.${now})`)
                 .order('due_date', { ascending: true })
             
             if (!isMounted) return
@@ -52,11 +49,11 @@ export default function OverdueLoansPage() {
     const refresh = () => setRefreshSignal(s => s + 1)
 
     async function markAllOverdue() {
-        const today = new Date().toISOString().split('T')[0]
+        const now = new Date().toISOString()
         const { count } = await supabase.from('loans').update({ status: 'overdue' })
-            .in('status', ['borrowed', 'partial_return']).lt('due_date', today)
-        await supabase.from('audit_logs').insert({ user_id: currentUser?.id, action: 'update', model_type: 'loan', description: `Menandai ${count || 0} peminjaman terlambat` })
-        toast.success(`${count || 0} peminjaman ditandai terlambat`)
+            .in('status', ['borrowed', 'partial_return']).lt('due_date', now)
+        await supabase.from('audit_logs').insert({ user_id: currentUser?.id, action: 'update', model_type: 'loan', description: `Menandai ${count || 0} peminjaman terlambat (batch)` })
+        toast.success(`${count || 0} peminjaman ditandai terlambat secara permanen`)
         refresh()
     }
 
@@ -65,19 +62,24 @@ export default function OverdueLoansPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <AlertTriangle className="w-6 h-6 text-red-400" />Peminjaman Terlambat
+                        <AlertTriangle className="w-6 h-6 text-red-500" />Peminjaman Terlambat
                     </h1>
                     <p className="text-muted-foreground">Daftar peminjaman yang melewati jatuh tempo</p>
                 </div>
-                <Button variant="destructive" onClick={markAllOverdue}>Tandai Semua Terlambat</Button>
+                <Button variant="destructive" className="font-bold tracking-tight px-6" onClick={markAllOverdue}>Tandai Semua Terlambat</Button>
             </div>
 
             <Card className="backdrop-blur-xl bg-card/80 border-border/50">
                 <CardContent className="pt-6">
                     {loading ? (
-                        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin" /></div>
+                        <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-primary/50" /></div>
                     ) : loans.length === 0 ? (
-                        <p className="text-center py-8 text-muted-foreground">Tidak ada peminjaman terlambat 🎉</p>
+                        <div className="py-12 text-center space-y-3">
+                            <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto border border-emerald-500/20">
+                                <AlertTriangle className="w-8 h-8 text-emerald-500" />
+                            </div>
+                            <p className="font-medium text-muted-foreground">Tidak ada peminjaman terlambat 🎉</p>
+                        </div>
                     ) : (
                         <Table>
                             <TableHeader>
@@ -87,21 +89,37 @@ export default function OverdueLoansPage() {
                                     <TableHead>Jml Item</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Jatuh Tempo</TableHead>
+                                    <TableHead className="text-right">Aksi</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loans.map((loan) => (
                                     <TableRow key={loan.id}>
                                         <TableCell>
-                                            <Link href={`/admin/loans/${loan.id}`} className="font-mono text-sm text-primary hover:underline">{loan.loan_code}</Link>
+                                            <Link href={`/admin/loans/${loan.id}`} className="font-mono font-bold text-xs text-primary hover:underline bg-primary/5 px-2 py-1 rounded-md border border-primary/10 tracking-tighter">
+                                                {loan.loan_code}
+                                            </Link>
                                         </TableCell>
                                         <TableCell>
-                                            <p className="text-sm font-medium">{(loan.user as Profile)?.name}</p>
-                                            <p className="text-xs text-muted-foreground">{(loan.user as Profile)?.department}</p>
+                                            <div className="py-0.5">
+                                                <p className="text-sm font-bold tracking-tight">{(loan.user as Profile)?.name}</p>
+                                                <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">{(loan.user as Profile)?.department}</p>
+                                            </div>
                                         </TableCell>
-                                        <TableCell><Badge variant="secondary">{(loan as unknown as { loan_items?: { id: number }[] }).loan_items?.length || 0}</Badge></TableCell>
-                                        <TableCell><Badge variant="outline" className={`text-xs ${STATUS_COLORS[loan.status]}`}>{STATUS_LABELS[loan.status]}</Badge></TableCell>
-                                        <TableCell className="text-sm text-red-400">{loan.due_date ? formatDate(loan.due_date) : '-'}</TableCell>
+                                        <TableCell><Badge variant="secondary" className="font-bold">{(loan as unknown as { loan_items?: { id: number }[] }).loan_items?.length || 0}</Badge></TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className={`text-[10px] font-black uppercase tracking-widest ${STATUS_COLORS.overdue}`}>
+                                                TERLAMBAT
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-sm font-bold text-red-500">{loan.due_date ? formatDateTime(loan.due_date) : '-'}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10 transition-colors" asChild title="Detail Peminjaman">
+                                                <Link href={`/admin/loans/${loan.id}`}>
+                                                    <Eye className="w-4 h-4" />
+                                                </Link>
+                                            </Button>
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

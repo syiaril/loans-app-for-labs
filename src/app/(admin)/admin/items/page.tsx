@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import useSWR, { mutate } from 'swr'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,17 +21,13 @@ import type { Item, Category } from '@/lib/types/database'
 
 export default function ItemsPage() {
     const { profile: currentUser } = useAuth()
-    const [items, setItems] = useState<(Item & { category?: Category })[]>([])
-    const [categories, setCategories] = useState<Category[]>([])
-    const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState('')
-    const [searchInput, setSearchInput] = useState('') // For immediate input tracking
+    const [searchInput, setSearchInput] = useState('')
     const [catFilter, setCatFilter] = useState('all')
     const [statusFilter, setStatusFilter] = useState('all')
     const [page, setPage] = useState(0)
-    const [totalItems, setTotalItems] = useState(0)
     const [mounted, setMounted] = useState(false)
-    const perPage = 20
+    const perPage = 10
 
     const supabase = createClient()
 
@@ -38,45 +35,39 @@ export default function ItemsPage() {
         setMounted(true)
     }, [])
 
-    // 1. Fetch categories ONCE on mount
-    useEffect(() => {
-        async function fetchCategories() {
-            const { data } = await supabase.from('categories').select('*').eq('is_active', true)
-            if (data) setCategories(data)
-        }
-        fetchCategories()
-    }, [])
+    // 1. Fetch categories with SWR
+    const { data: categories = [] } = useSWR('categories', async () => {
+        const { data } = await supabase.from('categories').select('*').eq('is_active', true)
+        return data || []
+    })
 
-    // 2. Fetch items whenever filters, search, or page changes
-    useEffect(() => {
-        let isMounted = true
-
-        async function loadItems() {
-            setLoading(true)
-            
-            let query = supabase.from('items').select('*, category:categories(name)', { count: 'exact' })
-            
-            if (catFilter !== 'all') query = query.eq('category_id', catFilter)
-            if (statusFilter !== 'all') query = query.eq('status', statusFilter)
-            if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,barcode.ilike.%${search}%`)
-            
-            const { data, count, error } = await query
-                .order('created_at', { ascending: false })
-                .range(page * perPage, (page + 1) * perPage - 1)
-
-            if (!isMounted) return
-
-            if (!error && data) {
-                setItems(data)
-                if (count !== null) setTotalItems(count)
-            }
-            setLoading(false)
-        }
-
-        loadItems()
-
-        return () => { isMounted = false }
+    // 2. Build SWR key for items based on filters
+    const itemsKey = useMemo(() => {
+        return ['items', page, catFilter, statusFilter, search]
     }, [page, catFilter, statusFilter, search])
+
+    // 3. Fetch items with SWR
+    const { data: itemsData, error: itemsError, isLoading: itemsLoading } = useSWR(itemsKey, async () => {
+        let query = supabase.from('items').select('*, category:categories(name)', { count: 'exact' })
+        
+        if (catFilter !== 'all') query = query.eq('category_id', catFilter)
+        if (statusFilter !== 'all') query = query.eq('status', statusFilter)
+        if (search) query = query.or(`name.ilike.%${search}%,code.ilike.%${search}%,barcode.ilike.%${search}%`)
+        
+        const { data, count, error } = await query
+            .order('created_at', { ascending: false })
+            .range(page * perPage, (page + 1) * perPage - 1)
+
+        if (error) throw error
+        return { items: data || [], total: count || 0 }
+    }, {
+        keepPreviousData: true, // This makes navigation feel instant
+        revalidateOnFocus: false // Reduce noise, focus is enough
+    })
+
+    const items = itemsData?.items || []
+    const totalItems = itemsData?.total || 0
+    const loading = itemsLoading && !itemsData // Only show full loading if no previous data
 
     // Reset pagination to 0 when filters change
     useEffect(() => {
@@ -95,15 +86,8 @@ export default function ItemsPage() {
         await supabase.from('audit_logs').insert({ user_id: currentUser?.id, action: 'delete', model_type: 'item', model_id: item.id, description: `Menghapus barang: ${item.name}` })
         toast.success('Barang dihapus')
         
-        // Refetch current page
-        const { data, count } = await supabase
-            .from('items')
-            .select('*, category:categories(name)', { count: 'exact' })
-            .order('created_at', { ascending: false })
-            .range(page * perPage, (page + 1) * perPage - 1)
-            
-        if (data) setItems(data)
-        if (count !== null) setTotalItems(count)
+        // Mutate SWR cache to update UI instantly
+        mutate(itemsKey)
     }
 
     const executeSearch = () => setSearch(searchInput)
@@ -122,46 +106,38 @@ export default function ItemsPage() {
             </div>
 
             <Card className="backdrop-blur-xl bg-card/80 border-border/50">
-                <CardHeader className="pb-6">
-                    <div className="flex flex-col gap-4">
-                        <div className="flex flex-col sm:flex-row gap-3">
-                            <div className="relative flex-1 flex gap-2">
-                                <div className="relative flex-1">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                                    <Input 
-                                        placeholder="Cari nama, kode, barcode..." 
-                                        value={searchInput} 
-                                        onChange={(e) => setSearchInput(e.target.value)} 
-                                        onKeyDown={(e) => e.key === 'Enter' && executeSearch()} 
-                                        className="h-10 pl-10 rounded-lg text-sm bg-card/50 border-border/60" 
-                                    />
-                                </div>
-                                <Button 
-                                    variant="secondary" 
-                                    onClick={executeSearch} 
-                                    className="h-10 px-4 rounded-lg font-bold active:scale-95 transition-all shrink-0"
-                                >
-                                    CARI
-                                </Button>
+                <CardHeader>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="relative flex-1 flex gap-2">
+                            <div className="relative flex-1">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input 
+                                    placeholder="Cari nama, kode, barcode..." 
+                                    value={searchInput} 
+                                    onChange={(e) => setSearchInput(e.target.value)} 
+                                    onKeyDown={(e) => e.key === 'Enter' && executeSearch()} 
+                                    className="pl-10" 
+                                />
                             </div>
+                            <Button variant="secondary" onClick={executeSearch} className="px-3 shrink-0">Cari</Button>
                         </div>
                         {mounted && (
-                          <div className="flex flex-col sm:flex-row gap-3">
+                          <>
                             <Select value={catFilter} onValueChange={setCatFilter}>
-                                <SelectTrigger className="h-9 rounded-md flex-1 sm:max-w-[180px]"><SelectValue placeholder="Kategori" /></SelectTrigger>
-                                <SelectContent className="rounded-lg">
+                                <SelectTrigger className="w-[180px] shrink-0"><SelectValue placeholder="Kategori" /></SelectTrigger>
+                                <SelectContent>
                                     <SelectItem value="all">Semua Kategori</SelectItem>
                                     {categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                <SelectTrigger className="h-9 rounded-md flex-1 sm:max-w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
-                                <SelectContent className="rounded-lg">
+                                <SelectTrigger className="w-[160px] shrink-0"><SelectValue placeholder="Status" /></SelectTrigger>
+                                <SelectContent>
                                     <SelectItem value="all">Semua Status</SelectItem>
                                     {Object.entries(ITEM_STATUS_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v as string}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                          </div>
+                          </>
                         )}
                     </div>
                 </CardHeader>

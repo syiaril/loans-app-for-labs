@@ -6,48 +6,25 @@ import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { FlaskConical, Loader2, CheckCircle } from 'lucide-react'
+import { useCart } from '@/hooks/use-cart'
+import { toast } from 'sonner'
 
 export default function PendingApprovalPage() {
     const router = useRouter()
+    const { items: cartItems, clearCart } = useCart()
     const [checking, setChecking] = useState(true)
     const [approved, setApproved] = useState(false)
+    const [autoBorrowing, setAutoBorrowing] = useState(false)
 
     useEffect(() => {
-        const supabase = createClient()
-
-        const interval = setInterval(async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) {
-                router.push('/login')
-                return
-            }
-
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('is_approved, role')
-                .eq('id', user.id)
-                .single()
-
-            if (profile?.is_approved) {
-                setApproved(true)
-                setTimeout(() => {
-                    if (profile.role === 'admin') {
-                        router.push('/admin/dashboard')
-                    } else {
-                        router.push('/borrower/dashboard')
-                    }
-                }, 2000)
-            }
-            setChecking(false)
-        }, 5000)
-
-            // Initial check
-            ; (async () => {
+            const checkStatus = async () => {
+                const supabase = createClient()
                 const { data: { user } } = await supabase.auth.getUser()
                 if (!user) {
                     router.push('/login')
                     return
                 }
+
                 const { data: profile } = await supabase
                     .from('profiles')
                     .select('is_approved, role')
@@ -56,15 +33,63 @@ export default function PendingApprovalPage() {
 
                 if (profile?.is_approved) {
                     setApproved(true)
+                    
+                    // Auto-borrow logic
+                    if (profile.role === 'borrower' && cartItems.length > 0) {
+                        setAutoBorrowing(true)
+                        try {
+                            const now = new Date()
+                            const dueDate = new Date(now.getTime() + 24 * 60 * 60 * 1000)
+                            const loanCode = `LN-${Date.now()}`
+                            
+                            const { data: loan, error } = await supabase.from('loans').insert({
+                                user_id: user.id,
+                                loan_code: loanCode,
+                                status: 'borrowed',
+                                borrowed_at: now.toISOString(),
+                                due_date: dueDate.toISOString(),
+                                notes: 'Peminjaman otomatis setelah disetujui admin',
+                            }).select().single()
+
+                            if (!error && loan) {
+                                const loanItemsData = cartItems.map((item) => ({
+                                    loan_id: loan.id,
+                                    item_id: item.id,
+                                    condition_before: 'good'
+                                }))
+                                await supabase.from('loan_items').insert(loanItemsData)
+                                await supabase.from('audit_logs').insert({
+                                    user_id: user.id,
+                                    action: 'borrow',
+                                    description: `Peminjaman otomatis ${cartItems.length} barang (${loanCode})`,
+                                    model_type: 'loan',
+                                    model_id: loan.id
+                                })
+                                clearCart()
+                                toast.success(`Berhasil meminjam barang secara otomatis! (${loanCode})`)
+                            }
+                        } catch (e) {
+                            console.error('Auto borrow error:', e)
+                            toast.error('Gagal melakukan peminjaman otomatis stelah disetujui.')
+                        } finally {
+                            setAutoBorrowing(false)
+                        }
+                    }
+
                     setTimeout(() => {
                         router.push(profile.role === 'admin' ? '/admin/dashboard' : '/borrower/dashboard')
-                    }, 1000)
+                    }, 2000)
                 }
                 setChecking(false)
-            })()
+            }
+
+        const interval = setInterval(checkStatus, 5000)
+        
+        // Initial check
+        checkStatus()
 
         return () => clearInterval(interval)
-    }, [router])
+    }, [router, cartItems, clearCart])
 
     async function handleLogout() {
         const supabase = createClient()
@@ -117,8 +142,13 @@ export default function PendingApprovalPage() {
                         </>
                     )}
                     {approved && (
-                        <div className="flex items-center justify-center">
-                            <Loader2 className="w-5 h-5 animate-spin text-emerald-400" />
+                        <div className="flex flex-col items-center justify-center gap-3 mt-4">
+                            <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
+                            {autoBorrowing ? (
+                                <p className="text-sm font-medium text-emerald-500 animate-pulse">Memproses peminjaman otomatis...</p>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">Mengarahkan ke dashboard...</p>
+                            )}
                         </div>
                     )}
                 </CardContent>
