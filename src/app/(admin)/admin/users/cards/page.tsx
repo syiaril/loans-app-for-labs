@@ -252,8 +252,8 @@ export default function UserCardsPrintPage() {
                     
                     .card {
                         position: relative;
-                        width: 8.5cm; /* Ukuran standar ID card */
-                        height: 5.4cm;
+                        width: 8.5cm;
+                        min-height: 5.4cm;
                         background: white;
                         border: 1px solid #cbd5e1;
                         border-radius: 8px;
@@ -262,74 +262,57 @@ export default function UserCardsPrintPage() {
                         margin-bottom: 10px;
                     }
 
-                    /* Grafik Latar Belakang */
                     .card-bg {
                         position: absolute;
-                        top: 0;
-                        left: 0;
-                        width: 100%;
-                        height: 35px;
+                        top: 0; left: 0;
+                        width: 100%; height: 38px;
                         background: linear-gradient(135deg, #eaddf8 0%, #f3e8ff 100%);
                         border-bottom: 3px solid #d8b4fe;
-                        z-index: 1;
+                        z-index: 0;
                     }
 
                     .card-bg-bottom {
                         position: absolute;
-                        bottom: 0;
-                        left: 0;
-                        width: 100%;
-                        height: 60px;
-                        background: #f8fafc;
-                        border-top: 1px solid #e2e8f0;
-                        z-index: 1;
-                        /* Optional wave using css clip-path roughly */
+                        bottom: 0; left: 0;
+                        width: 100%; height: 50px;
                         clip-path: polygon(0 20%, 30% 0, 70% 30%, 100% 10%, 100% 100%, 0 100%);
                         background: linear-gradient(to right, #e0f2fe, #f3e8ff);
                         opacity: 0.8;
+                        z-index: 0;
                     }
 
                     .card-content {
                         position: relative;
-                        z-index: 2;
-                        width: 100%;
-                        height: 100%;
-                        display: flex;
-                        flex-direction: column;
-                        padding: 8px 12px;
+                        z-index: 1;
+                        padding: 6px 12px 6px;
                     }
 
                     /* Header */
                     .header {
                         display: flex;
                         align-items: center;
-                        gap: 10px;
-                        margin-bottom: 8px;
-                        height: 35px;
+                        gap: 8px;
+                        margin-bottom: 6px;
                     }
                     .logo-box {
-                        width: 28px;
-                        height: 32px;
+                        width: 26px;
+                        height: 30px;
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        margin-top: -2px;
                     }
-                    .header-text {
-                        flex: 1;
-                        margin-top: -2px;
-                    }
+                    .header-text { flex: 1; }
                     .title {
                         font-size: 11px;
                         font-weight: bold;
                         color: #1e293b;
-                        line-height: 1.1;
+                        line-height: 1.2;
                     }
                     .subtitle {
                         font-size: 10px;
                         color: #334155;
                         font-weight: 600;
-                        line-height: 1.1;
+                        line-height: 1.2;
                     }
                     .address {
                         font-size: 7px;
@@ -340,12 +323,12 @@ export default function UserCardsPrintPage() {
                     /* Body Section */
                     .body-section {
                         display: flex;
-                        gap: 10px;
-                        flex: 1;
+                        gap: 8px;
+                        margin-bottom: 4px;
                     }
                     .photo-container {
-                        width: 2.2cm;
-                        height: 2.8cm;
+                        width: 1.8cm;
+                        height: 2.2cm;
                         border: 1px solid #94a3b8;
                         background: #f1f5f9;
                         border-radius: 4px;
@@ -354,24 +337,22 @@ export default function UserCardsPrintPage() {
                         justify-content: center;
                         color: #cbd5e1;
                         overflow: hidden;
+                        flex-shrink: 0;
                     }
-                    .photo-placeholder {
-                        color: #94a3b8;
-                    }
+                    .photo-placeholder { color: #94a3b8; }
                     
                     .user-data {
                         flex: 1;
-                        font-size: 9px;
+                        font-size: 8.5px;
                         border-collapse: collapse;
-                        margin-top: 2px;
                     }
                     .user-data td {
-                        padding: 1.5px 0;
+                        padding: 1px 0;
                         vertical-align: top;
                         color: #0f172a;
                     }
                     .user-data .label {
-                        width: 45px;
+                        width: 42px;
                         color: #475569;
                     }
                     .user-data .separator {
@@ -380,32 +361,26 @@ export default function UserCardsPrintPage() {
                     }
                     .user-data .font-bold {
                         font-weight: bold;
-                        font-size: 9.5px;
+                        font-size: 9px;
                         text-transform: uppercase;
                     }
 
                     /* Barcode Area */
                     .barcode-area {
                         text-align: center;
-                        margin-top: auto;
-                        padding-bottom: 2px;
-                        height: 60px;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        justify-content: flex-end;
+                        padding: 2px 0 4px;
                     }
                     .barcode-img {
-                        height: 38px;
+                        height: 32px;
                         width: auto;
                         max-width: 100%;
                     }
                     .barcode-text {
-                        font-size: 9px;
+                        font-size: 8px;
                         font-weight: bold;
                         letter-spacing: 1px;
                         color: #0f172a;
-                        margin-top: -2px;
+                        margin-top: -1px;
                     }
                 </style>
             </head>
