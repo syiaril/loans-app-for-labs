@@ -46,7 +46,7 @@ export default function BorrowerNavbar() {
             if (error) throw error
 
             toast.success('Berhasil logout', { id: logoutToast })
-            router.replace('/login')
+            window.location.href = '/login'
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Unknown error'
             toast.error('Gagal logout: ' + message, { id: logoutToast })

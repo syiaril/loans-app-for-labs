@@ -157,8 +157,16 @@ export default function BorrowPage() {
                         <Card key={item.id} className="backdrop-blur-xl bg-card/60 border-border/40 hover:border-primary/40 transition-all duration-300 shadow-sm rounded-2xl overflow-hidden group">
                             <CardContent className="p-0">
                                 <div className="p-5 flex items-center gap-4">
-                                    <div className="w-16 h-16 rounded-2xl bg-muted/60 flex items-center justify-center shrink-0 border border-border/40 shadow-inner group-hover:scale-105 transition-transform duration-300">
-                                        <Package className="w-8 h-8 text-muted-foreground/50" />
+                                    <div className="w-16 h-16 rounded-2xl bg-muted/60 flex items-center justify-center shrink-0 border border-border/40 shadow-inner group-hover:scale-105 transition-transform duration-300 overflow-hidden">
+                                        {item.image ? (
+                                            <img
+                                                src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/items/${item.image}`}
+                                                alt={item.name}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <Package className="w-8 h-8 text-muted-foreground/50" />
+                                        )}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <h3 className="font-bold text-base truncate">{item.name}</h3>

@@ -75,7 +75,7 @@ export default function DailyReportPage() {
                 </div>
                 <div className="flex items-center gap-2">
                     <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-44" />
-                    <Button variant="outline" onClick={handleExport}><Download className="w-4 h-4 mr-2" />Export CSV</Button>
+                    <Button variant="outline" onClick={handleExport}><Download className="w-4 h-4 mr-2" />Export Excel</Button>
                 </div>
             </div>
 

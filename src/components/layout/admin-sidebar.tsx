@@ -77,7 +77,7 @@ export default function AdminSidebar() {
             if (error) throw error
 
             toast.success('Berhasil logout', { id: logoutToast })
-            router.replace('/login')
+            window.location.href = '/login'
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : 'Unknown error'
             toast.error('Gagal logout: ' + message, { id: logoutToast })
@@ -163,8 +163,8 @@ export default function AdminSidebar() {
             </ScrollArea>
 
             {/* Footer */}
-            <div className="p-4 border-t border-border/40 bg-muted/20 space-y-4">
-                <div className="flex items-center justify-between">
+            <div className={cn("p-4 border-t border-border/40 bg-muted/20 space-y-4", collapsed && "px-2")}>
+                <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "justify-between")}>
                     <Button
                         variant="ghost"
                         size="icon"

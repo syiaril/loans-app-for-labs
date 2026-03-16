@@ -93,7 +93,7 @@ export default function MonthlyReportPage() {
                 <div className="flex items-center gap-2">
                     <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="w-44" />
                     <Button variant="outline" onClick={() => window.open(`/api/reports/monthly-export?month=${month}`, '_blank')}>
-                        <Download className="w-4 h-4 mr-2" />Export CSV
+                        <Download className="w-4 h-4 mr-2" />Export Excel
                     </Button>
                 </div>
             </div>
