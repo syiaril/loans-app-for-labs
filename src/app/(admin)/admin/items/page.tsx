@@ -36,9 +36,9 @@ export default function ItemsPage() {
     }, [])
 
     // 1. Fetch categories with SWR
-    const { data: categories = [] } = useSWR('categories', async () => {
+    const { data: categories = [] } = useSWR<Category[]>('categories', async () => {
         const { data } = await supabase.from('categories').select('*').eq('is_active', true)
-        return data || []
+        return (data as Category[]) || []
     })
 
     // 2. Build SWR key for items based on filters
@@ -127,7 +127,7 @@ export default function ItemsPage() {
                                 <SelectTrigger className="w-[180px] shrink-0"><SelectValue placeholder="Kategori" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Semua Kategori</SelectItem>
-                                    {categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                                    {categories.map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -174,7 +174,7 @@ export default function ItemsPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {items.map((item) => (
+                                    {items.map((item: any) => (
                                         <TableRow key={item.id}>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
