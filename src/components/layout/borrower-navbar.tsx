@@ -37,7 +37,7 @@ export default function BorrowerNavbar() {
                     user_id: profile.id,
                     action: 'logout',
                     description: 'Logout dari aplikasi',
-                }).then(({ error }) => {
+                }).then(({ error }: { error: any }) => {
                     if (error) console.error('Failed to log logout:', error)
                 })
             }
