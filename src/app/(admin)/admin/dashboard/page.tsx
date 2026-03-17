@@ -43,7 +43,7 @@ export default function AdminDashboard() {
             supabase.from('items').select('*', { count: 'exact', head: true }).in('status', ['maintenance', 'lost']),
         ])
 
-        const overdueCount = allOverdueCandidateLoans?.filter(l => 
+        const overdueCount = allOverdueCandidateLoans?.filter((l: any) => 
             l.status === 'overdue' || (l.due_date && new Date(l.due_date) < now)
         ).length || 0
 

@@ -81,7 +81,7 @@ export default function BarcodePrintPage() {
         }
 
         // Build print HTML
-        const barcodeHTML = selectedItems.map(item => {
+        const barcodeHTML = selectedItems.map((item: any) => {
             const canvas = document.createElement('canvas')
             try {
                 JsBarcode(canvas, item.barcode, {

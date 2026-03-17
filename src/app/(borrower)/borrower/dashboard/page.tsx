@@ -42,9 +42,9 @@ export default function BorrowerDashboard() {
     if (!profile) return <div className="p-8 text-center">Loading profile...</div>
 
     const totalActive = activeLoans.length
-    const totalItems = activeLoans.reduce((acc, l) => acc + (l.loan_items?.length || 0), 0)
+    const totalItems = activeLoans.reduce((acc: any, l: any) => acc + (l.loan_items?.length || 0), 0)
     const now = new Date()
-    const overdueCount = activeLoans.filter(l => 
+    const overdueCount = activeLoans.filter((l: any) => 
         l.status === 'overdue' || 
         (['borrowed', 'partial_return'].includes(l.status) && l.due_date && new Date(l.due_date) < now)
     ).length
@@ -117,8 +117,8 @@ export default function BorrowerDashboard() {
                     {(!activeLoans || activeLoans.length === 0) ? (
                         <p className="text-muted-foreground text-center py-8">Tidak ada peminjaman aktif</p>
                     ) : (
-                        <div className="space-y-3">
-                            {activeLoans.map((loan) => (
+                        <div className="space-y-4">
+                            {activeLoans.map((loan: any) => (
                                 <div key={loan.id} className="p-4 rounded-xl bg-muted/30 border border-border/30 hover:bg-muted/50 transition-colors">
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2">
@@ -160,7 +160,7 @@ export default function BorrowerDashboard() {
                         <p className="text-muted-foreground text-center py-8">Belum ada riwayat</p>
                     ) : (
                         <div className="space-y-2">
-                            {recentLoans.map((loan) => (
+                            {recentLoans.map((loan: any) => (
                                 <div key={loan.id} className="flex items-center justify-between p-3 rounded-lg bg-muted/20">
                                     <div className="flex items-center gap-2">
                                         <code className="text-xs font-mono">{loan.loan_code}</code>

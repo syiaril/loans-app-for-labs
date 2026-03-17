@@ -29,16 +29,16 @@ export default function MonthlyReportPage() {
 
         const loansData = loans || []
         const totalLoans = loansData.length
-        const totalItems = loansData.reduce((a, l) => a + ((l.loan_items as any[])?.length || 0), 0)
-        const uniqueUsers = new Set(loansData.map(l => l.user_id)).size
-        const returnedCount = loansData.filter(l => l.status === 'returned').length
-        const overdueCount = loansData.filter(l => l.status === 'overdue').length
+        const totalItems = loansData.reduce((a: any, l: any) => a + ((l.loan_items as any[])?.length || 0), 0)
+        const uniqueUsers = new Set(loansData.map((l: any) => l.user_id)).size
+        const returnedCount = loansData.filter((l: any) => l.status === 'returned').length
+        const overdueCount = loansData.filter((l: any) => l.status === 'overdue').length
 
         // Chart data - loans per day
         const daysInMonth = new Date(year, mon, 0).getDate()
         const dayMap: Record<string, number> = {}
         for (let d = 1; d <= daysInMonth; d++) dayMap[d.toString()] = 0
-        loansData.forEach(l => {
+        loansData.forEach((l: any) => {
             const day = new Date(l.created_at).getDate().toString()
             dayMap[day] = (dayMap[day] || 0) + 1
         })
@@ -46,8 +46,8 @@ export default function MonthlyReportPage() {
 
         // Popular items
         const itemCounts: Record<string, number> = {}
-        loansData.forEach(l => {
-            (l.loan_items as any[])?.forEach(li => {
+        loansData.forEach((l: any) => {
+            (l.loan_items as any[])?.forEach((li: any) => {
                 const name = li.item?.name || 'Unknown'
                 itemCounts[name] = (itemCounts[name] || 0) + 1
             })
@@ -59,7 +59,7 @@ export default function MonthlyReportPage() {
 
         // Active borrowers
         const borrowerCounts: Record<string, number> = {}
-        loansData.forEach(l => {
+        loansData.forEach((l: any) => {
             const name = (l.user as any)?.name || 'Unknown'
             borrowerCounts[name] = (borrowerCounts[name] || 0) + 1
         })
