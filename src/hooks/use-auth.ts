@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Profile } from '@/lib/types/database'
-import type { User } from '@supabase/supabase-js'
+import type { User, AuthChangeEvent, Session } from '@supabase/supabase-js'
 import useSWR from 'swr'
 
 export function useAuth() {
@@ -21,7 +21,7 @@ export function useAuth() {
         getInitialUser()
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
+            async (_event: AuthChangeEvent, session: Session | null) => {
                 setUser(session?.user ?? null)
                 setAuthLoading(false)
             }
