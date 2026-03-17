@@ -44,7 +44,7 @@ export default function CategoriesPage() {
             if (!isMounted) return
 
             if (data && !error) {
-                const formatted = data.map(cat => ({
+                const formatted = data.map((cat: any) => ({
                     ...cat,
                     item_count: (cat.items as any)?.[0]?.count ?? 0
                 }))

@@ -72,14 +72,18 @@ export async function GET(request: Request) {
     }
 
     if (query) {
+        // Sanitize query: remove commas to prevent breaking Supabase .or() filter syntax
+        const sanitizedQuery = query.replace(/,/g, ' ')
+        
         const { data: items, error } = await supabase
             .from('items')
             .select(`*, category:categories(name)`)
-            .or(`name.ilike.%${query}%,code.ilike.%${query}%,barcode.ilike.%${query}%`)
+            .or(`name.ilike.%${sanitizedQuery}%,code.ilike.%${sanitizedQuery}%,barcode.ilike.%${sanitizedQuery}%`)
             .eq('is_active', true)
             .limit(10)
 
         if (error) {
+            console.error('Search error:', error)
             return NextResponse.json({ error: 'Gagal mencari barang' }, { status: 500 })
         }
 
