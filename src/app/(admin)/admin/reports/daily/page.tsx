@@ -14,6 +14,14 @@ import useSWR from 'swr'
 import { useAuth } from '@/hooks/use-auth'
 import { CardSkeleton } from '@/components/skeletons'
 
+interface ReturnRecord {
+    id: number;
+    item_name: string;
+    loan_code: string;
+    returned_at: string;
+    condition_after: string;
+}
+
 export default function DailyReportPage() {
     const { user } = useAuth()
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
@@ -36,7 +44,7 @@ export default function DailyReportPage() {
         ])
 
         const loans = (loansRes.data || []) as (Loan & { user?: Profile; loan_items?: { id: number }[] })[]
-        const returns = (returnsRes.data || []).map((r: any) => ({
+        const returns: ReturnRecord[] = (returnsRes.data || []).map((r: any) => ({
             id: r.id,
             item_name: r.item?.name || '',
             loan_code: r.loan?.loan_code || '',
@@ -140,7 +148,7 @@ export default function DailyReportPage() {
                                         <TableHead>Barang</TableHead><TableHead>Kode Pinjam</TableHead><TableHead>Kondisi</TableHead><TableHead>Waktu</TableHead>
                                     </TableRow></TableHeader>
                                     <TableBody>
-                                        {returns.map(r => (
+                                        {returns.map((r) => (
                                             <TableRow key={r.id}>
                                                 <TableCell className="text-sm">{r.item_name}</TableCell>
                                                 <TableCell><code className="text-xs">{r.loan_code}</code></TableCell>
